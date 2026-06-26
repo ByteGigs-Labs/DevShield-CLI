@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ DevShield CLI
+# DevShield CLI
 
 ### Secure. Analyze. Optimize.
 
@@ -27,9 +27,9 @@ To understand the motivation, architecture, and rule system, refer to the docume
 
 DevShield is built around an extensible plugin architecture, allowing developers to add custom scanners
 
----
 
-## Features
+
+# Features
 
 ### Security Analysis
 
@@ -43,7 +43,6 @@ DevShield is built around an extensible plugin architecture, allowing developers
 - Dangerous permissions
 - OWASP-inspired rules
 
----
 
 ### Performance Analysis
 
@@ -55,7 +54,6 @@ DevShield is built around an extensible plugin architecture, allowing developers
 - Static asset optimization
 - Image optimization checks
 
----
 
 ### Project Health
 
@@ -67,7 +65,6 @@ DevShield is built around an extensible plugin architecture, allowing developers
 - CI/CD workflow validation
 - Version consistency
 
----
 
 ### Framework Support
 
@@ -107,7 +104,6 @@ cd devshield-cli
 pip install -e .
 ```
 
----
 
 # Quick Start
 
@@ -183,7 +179,6 @@ devshield fix
 to automatically resolve supported issues.
 ```
 
----
 
 # Commands
 
@@ -235,7 +230,6 @@ Update rules
 devshield update
 ```
 
----
 
 # Reports
 
@@ -255,7 +249,6 @@ Example
 devshield report --html report.html
 ```
 
----
 
 # GitHub Actions
 
@@ -284,7 +277,6 @@ jobs:
       - run: devshield scan
 ```
 
----
 
 # Configuration
 
@@ -312,7 +304,6 @@ auto_fix:
   enabled: true
 ```
 
----
 
 # Rule Categories
 
@@ -363,7 +354,6 @@ devshield/
 └── docs/
 ```
 
----
 
 # Plugin System
 
