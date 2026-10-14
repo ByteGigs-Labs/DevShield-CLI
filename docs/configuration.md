@@ -14,6 +14,9 @@ ignore:
 exclude:
   - tests/fixtures/
 
+# Also check development-profile files (application-dev.properties, settings/dev.py, ...).
+scan_dev_files: false
+
 severity:
   minimum: info      # hide findings below this: info, low, medium, high, critical
   fail_on: high      # exit 1 at this severity or above

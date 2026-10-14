@@ -10,7 +10,6 @@ from devshield.core.parsers import MISSING, literal, module_assignments, secret_
 from devshield.core.parsers import string_literals as string_values
 from devshield.core.rule import Rule
 from devshield.core.search import call_arguments, is_string_literal, search, search_text
-from devshield.rules._bases import is_dev_file
 from devshield.rules._frameworks import (
     DOTNET_COOKIE,
     SPRING_COOKIE_KEYS,
@@ -130,7 +129,7 @@ class CookieHardening(Rule):
 
     def _spring(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in spring_config_files(ctx):
-            if is_dev_file(file):
+            if ctx.is_dev_file(file):
                 continue
             for entry in ctx.config_entries(file):
                 key = entry.key.lower()
@@ -327,6 +326,9 @@ class CsrfDisabled(Rule):
         r"\bcsrf\s*\(\s*\)\s*\.\s*disable\s*\(|\bcsrf\s*\(\s*(?:\w+\s*->\s*\w+\s*\.\s*disable\s*\("
         r"|[\w.]*::\s*disable)"
     )
+    stateless = re.compile(
+        r"SessionCreationPolicy\.STATELESS|oauth2ResourceServer|jwtAuthenticationConverter"
+    )
     dotnet = re.compile(r"\[IgnoreAntiforgeryToken\]|IgnoreAntiforgeryTokenAttribute")
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
@@ -341,8 +343,12 @@ class CsrfDisabled(Rule):
                 severity=Severity.LOW,
             )
         for hit in search_text(ctx, ctx.java_files, self.spring):
+            if self.stateless.search(ctx.read_text(hit.file) or ""):
+                continue  # token-based APIs do not need CSRF protection
             yield self.finding(
-                "Spring Security CSRF protection is disabled", file=hit.file, line=hit.line
+                "CSRF protection is disabled and the app is not configured as stateless",
+                file=hit.file,
+                line=hit.line,
             )
         for hit in search(ctx, ctx.csharp_files, self.dotnet):
             yield self.finding("Antiforgery validation is skipped", file=hit.file, line=hit.line)
@@ -383,7 +389,7 @@ class HardcodedFrameworkSecret(Rule):
             if "secret_key" not in text.lower():
                 continue
             tree = ctx.pyast(file)
-            if tree is None or is_dev_file(file):
+            if tree is None or ctx.is_dev_file(file):
                 continue
             for name, value, line in secret_assignments(tree, PYTHON_SECRET_NAMES):
                 literals = [s for s in string_values(value) if s.strip()]

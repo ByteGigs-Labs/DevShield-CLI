@@ -7,7 +7,6 @@ from devshield.core.context import ProjectContext
 from devshield.core.models import Category, Finding, Framework, Severity
 from devshield.core.rule import Rule
 from devshield.core.search import search_text
-from devshield.rules._bases import is_dev_file
 from devshield.rules._frameworks import spring_config_files
 
 SPRING = frozenset({Framework.SPRING})
@@ -23,7 +22,7 @@ INCLUDE_KEY = "management.endpoints.web.exposure.include"
 def _entries(ctx: ProjectContext) -> Iterator[tuple[str, str, str, int]]:
     """(file, lowercase key, value, line) of every production Spring config entry."""
     for file in spring_config_files(ctx):
-        if is_dev_file(file):
+        if ctx.is_dev_file(file):
             continue
         for entry in ctx.config_entries(file):
             yield file, entry.key.lower().replace("_", "-"), entry.value.strip(), entry.line

@@ -18,8 +18,11 @@ map from stack to rules; each ID links to its own page.
 | CloudFormation | YAML or JSON templates that declare `AWS::` resources |
 | Docker, GitHub Actions | `Dockerfile` or compose files, workflow files |
 
-Detected stacks are listed at the top of every report. Build output (`target/`, `obj/`,
-`.terraform/`) and virtual environments are never scanned.
+Detected stacks are listed at the top of every report. Build output is skipped: `target/` next to a
+`pom.xml` or Gradle build, `obj/` and `bin/` next to a `.csproj`, `.terraform/`, and virtual
+environments. A folder that only shares one of those names is still scanned. Development-profile
+files (`application-dev.properties`, `settings/dev.py`) are skipped by the debug-style checks; set
+`scan_dev_files: true` in `devshield.yml` to check them too.
 
 ## Rules by stack
 

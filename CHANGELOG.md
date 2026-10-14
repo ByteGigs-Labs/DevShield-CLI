@@ -30,6 +30,12 @@ All notable changes to this project are documented here. The format follows
   SH401-SH405), fixtures and docs. SH001-SH003 now cover these stacks too, and `devshield fix`
   creates starter CI workflows for Python, Java and .NET projects.
 
+- `scan_dev_files` option to also check development-profile files, which the framework rules skip by
+  default.
+
+- Terraform policies that are built from `locals`, variable defaults, `concat()` and `merge()` are
+  now evaluated per module, so the IAM and S3 rules see through them.
+
 ### Changed
 
 - Scans of large repositories are much faster: files that cannot match a rule are ruled out with
