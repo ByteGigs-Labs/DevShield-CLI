@@ -19,7 +19,10 @@ EXPOSED_PUBLIC_FILES = (
     "public/phpinfo.php",
     "public/info.php",
 )
-AUTH_ROUTE = re.compile(r"login|password|register|auth", re.I)
+AUTH_ROUTE = re.compile(
+    r"(?:Route::(?:post|put|patch|any|match)|->(?:post|put|patch))\(.*(?:login|password|register|auth(?![a-z]))",
+    re.I,
+)
 THROTTLE = re.compile(r"throttle|RateLimiter", re.I)
 OPTIMIZE = re.compile(r"artisan\s+(?:optimize|config:cache|route:cache|view:cache)")
 DEPLOY_PATTERNS = ("*.sh", "Makefile", "deploy.*", "Envoy.blade.php")
@@ -121,11 +124,13 @@ class InsecureSessionConfig(Rule):
         )
         for key, is_safe, message, severity in checks:
             if key in data and not is_safe(_resolve(data[key], ctx)):
+                from_env = isinstance(data[key], PhpEnv)
                 yield self.finding(
-                    message,
+                    message
+                    + (f" ({data[key].name} is not enabled in any env file)" if from_env else ""),
                     file="config/session.php",
                     line=lines.get((key,)),
-                    severity=severity,
+                    severity=Severity.LOW if from_env else severity,
                 )
 
 

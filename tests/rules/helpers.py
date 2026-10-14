@@ -19,6 +19,8 @@ LARAVEL = {"artisan": "", "composer.json": '{"require": {"laravel/framework": "^
 WORKFLOW = ".github/workflows/ci.yml"
 AWS_KEY = "AKIA" + "Q3EGRXZ7K2JTHPLM"
 GITHUB_TOKEN = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+GENERIC_SECRET = "q8Zr2LmP0v" + "Xw93TbYk6Nd"
+DB_PASSWORD = "Zx83kLm" + "20Qw"
 PRIVATE_KEY = "-----BEGIN " + "RSA PRIVATE KEY-----"
 
 

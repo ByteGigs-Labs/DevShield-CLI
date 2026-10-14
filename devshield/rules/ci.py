@@ -13,9 +13,10 @@ USES = re.compile(r"^(?P<owner>[^/@\s.][^/@\s]*)/[^@\s]+@(?P<ref>\S+)$")
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 OFFICIAL_OWNERS = frozenset({"actions", "github"})
 INSTALL = re.compile(
-    r"npm (?:ci|install)|yarn(?: install)?\b|pnpm install|pip install|composer install"
+    r"npm (?:ci|install)|\byarn(?:\s+install|\s+--|\s*$)|pnpm install|pip install|composer install",
+    re.M,
 )
-ECHOED_SECRET = re.compile(r"\becho\b[^\n]*\$\{\{\s*secrets\.", re.I)
+ECHOED_SECRET = re.compile(r"^[^|>\n]*\becho\b[^|>\n]*\$\{\{\s*secrets\.[^|>\n]*$", re.I | re.M)
 INJECTABLE = re.compile(
     r"\$\{\{[^}]*(?:github\.head_ref|github\.event\.(?:issue|pull_request|comment|review|"
     r"head_commit|commits|pages)[^}]*\.(?:title|body|message|name|label|ref|email))[^}]*\}\}"
@@ -71,6 +72,8 @@ class WorkflowPermissions(Rule):
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file, document in _workflows(ctx):
+            if _triggers(document) == ["workflow_call"]:
+                continue
             permissions = document.get("permissions")
             if permissions == "write-all":
                 yield self.finding(
@@ -132,7 +135,8 @@ class UnpinnedAction(_WorkflowRule):
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file, document in _workflows(ctx):
             for job, index, step in _steps(document):
-                match = USES.match(str(step.get("uses", "")))
+                uses = str(step.get("uses", ""))
+                match = None if uses.startswith("docker://") else USES.match(uses)
                 if match and not FULL_SHA.match(match.group("ref")):
                     official = match.group("owner") in OFFICIAL_OWNERS
                     yield self.at(
@@ -159,8 +163,8 @@ class CiWithoutCache(Rule):
             steps = [step for _, _, step in _steps(document)]
             installs = any(INSTALL.search(str(s.get("run", ""))) for s in steps)
             caches = any(
-                str(s.get("uses", "")).startswith("actions/cache")
-                or (isinstance(s.get("with"), dict) and "cache" in s["with"])
+                "cache" in str(s.get("uses", "")).lower()
+                or (isinstance(s.get("with"), dict) and any("cache" in str(k) for k in s["with"]))
                 for s in steps
             )
             if installs and not caches:
@@ -202,5 +206,6 @@ class ScriptInjection(_WorkflowRule):
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file, document in _workflows(ctx):
             for job, index, step in _steps(document):
-                if INJECTABLE.search(str(step.get("run", ""))):
+                found = INJECTABLE.search(str(step.get("run", "")))
+                if found and ".base." not in found.group():
                     yield self.at(ctx, file, job, index, "Untrusted input is used inside run:")

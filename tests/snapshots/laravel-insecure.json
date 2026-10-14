@@ -274,20 +274,6 @@
       "title": "Laravel session cookie not hardened",
       "severity": "medium",
       "category": "authentication",
-      "message": "Session cookie is not marked secure",
-      "location": {
-        "file": "config/session.php",
-        "line": 4,
-        "column": null
-      },
-      "remediation": "In config/session.php set secure=true, http_only=true and same_site='lax'.",
-      "fixable": false
-    },
-    {
-      "rule_id": "SH104",
-      "title": "Laravel session cookie not hardened",
-      "severity": "medium",
-      "category": "authentication",
       "message": "Session cookie is readable by scripts",
       "location": {
         "file": "config/session.php",
@@ -402,20 +388,6 @@
       "fixable": false
     },
     {
-      "rule_id": "PERF108",
-      "title": "No HEALTHCHECK",
-      "severity": "low",
-      "category": "docker",
-      "message": "The final stage has no HEALTHCHECK",
-      "location": {
-        "file": "Dockerfile",
-        "line": null,
-        "column": null
-      },
-      "remediation": "Add a HEALTHCHECK instruction that calls a lightweight endpoint.",
-      "fixable": false
-    },
-    {
       "rule_id": "PERF107",
       "title": "Dependency install after copying the whole project",
       "severity": "low",
@@ -448,6 +420,20 @@
       "title": "Laravel session cookie not hardened",
       "severity": "low",
       "category": "authentication",
+      "message": "Session cookie is not marked secure (SESSION_SECURE_COOKIE is not enabled in any env file)",
+      "location": {
+        "file": "config/session.php",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "In config/session.php set secure=true, http_only=true and same_site='lax'.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH104",
+      "title": "Laravel session cookie not hardened",
+      "severity": "low",
+      "category": "authentication",
       "message": "same_site is not set to lax or strict",
       "location": {
         "file": "config/session.php",
@@ -455,6 +441,20 @@
         "column": null
       },
       "remediation": "In config/session.php set secure=true, http_only=true and same_site='lax'.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF108",
+      "title": "No HEALTHCHECK",
+      "severity": "info",
+      "category": "docker",
+      "message": "The final stage has no HEALTHCHECK",
+      "location": {
+        "file": "Dockerfile",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add a HEALTHCHECK instruction that calls a lightweight endpoint.",
       "fixable": false
     }
   ],
@@ -504,6 +504,6 @@
     "SH302"
   ],
   "suppressed": 0,
-  "score": 0,
+  "score": 1,
   "band": "critical"
 }

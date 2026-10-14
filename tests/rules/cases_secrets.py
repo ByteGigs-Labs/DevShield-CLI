@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from tests.rules.helpers import (
     AWS_KEY,
+    DB_PASSWORD,
+    GENERIC_SECRET,
     GITHUB_TOKEN,
     LARAVEL,
     PRIVATE_KEY,
@@ -20,8 +22,8 @@ POSITIVE: Positive = {
         ({"config.js": f'const k = "{AWS_KEY}";\n'}, {"config.js:1"}),
         ({"deploy.sh": f"export T={GITHUB_TOKEN}\n"}, {"deploy.sh:1"}),
         ({"key.pem": f"{PRIVATE_KEY}\nMIIE\n"}, {"key.pem:1"}),
-        ({"app.js": 'const apiKey = "q8Zr2LmP0vXw93TbYk6Nd";\n'}, {"app.js:1"}),
-        ({"c.py": 'URL = "postgres://admin:Zx83kLm20Qw@db.internal/app"\n'}, {"c.py:1"}),
+        ({"app.js": f'const apiKey = "{GENERIC_SECRET}";\n'}, {"app.js:1"}),
+        ({"c.py": f'URL = "postgres://admin:{DB_PASSWORD}@db.internal/app"\n'}, {"c.py:1"}),
     ],
     "SH202": [
         ({".env": "A=1\n"}, {".env"}),
@@ -82,4 +84,20 @@ NEGATIVE: Negative = {
         {".env": "A=1\n", ".env.example": "A=\n"},
         {".env.example": "A=\nB=\n"},
     ],
+}
+
+
+EXTRA_NEGATIVE: Negative = {
+    "SH001": [{".gitignore": ".env\n", ".env": "APP_DEBUG=true\n"}],
+    "SH201": [
+        {"c.js": 'const password = "must-be-at-least-sixteen-chars";\n'},
+        {"c.js": 'const apiKey = "https://api.example.org/v1/resource";\n'},
+        {"c.py": 'URL = f"postgres://admin:{password}@db.internal/app"\nB = "mysql://u:%s@h/db"\n'},
+    ],
+    "SH205": [
+        {".env": "JWT_SECRET_TTL=3600\nSECRET_ROTATION_DAYS=30\nJWT_SECRET_FILE=/run/s\n"},
+    ],
+}
+NEGATIVE = {
+    k: [*NEGATIVE.get(k, []), *EXTRA_NEGATIVE.get(k, [])] for k in {*NEGATIVE, *EXTRA_NEGATIVE}
 }

@@ -3,17 +3,22 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
-from devshield.core.context import ProjectContext
+from devshield.core.context import ProjectContext, is_test_path
 from devshield.core.git import run_git
 from devshield.core.models import Category, Finding, Framework, Severity
 from devshield.core.rule import Rule
 from devshield.core.search import MAX_LINE_LENGTH
 from devshield.core.secrets import find_secrets, mask
+from devshield.rules._bases import is_deployed_env
 
 SKIPPED_NAMES = frozenset({"package-lock.json", "composer.lock", "yarn.lock", "pnpm-lock.yaml"})
 SKIPPED_SUFFIXES = (".lock", ".min.js", ".map", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico")
 KEY_FILE = re.compile(r"(?:^|/)(?:id_(?:rsa|dsa|ecdsa|ed25519)|[^/]+\.(?:p12|pfx|jks|keystore))$")
 SECRET_NAME = re.compile(r"^(?:APP_KEY|[A-Z_]*(?:SECRET|SIGNING_KEY|ENCRYPTION_KEY)[A-Z_]*)$")
+NOT_A_SECRET = re.compile(
+    r"(?:^|_)(?:TTL|EXPIRES?|LIFETIME|DAYS|ENABLED|NAME|PATH|FILE|URL|ID|HEADER|LENGTH|PREFIX)(?:_|$)"
+)
+PLAIN_VALUE = re.compile(r"^(?:\d+|true|false)$", re.I)
 WEAK_VALUES = frozenset(
     {
         "secret",
@@ -70,7 +75,9 @@ class HardcodedSecrets(Rule):
                         f"{secret.name} found: {mask(secret.value)}",
                         file=file,
                         line=number,
-                        severity=secret.severity,
+                        severity=min(secret.severity, Severity.MEDIUM)
+                        if is_test_path(file)
+                        else secret.severity,
                     )
 
 
@@ -170,15 +177,31 @@ class WeakSecret(Rule):
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in ctx.env_files:
-            for entry in ctx.dotenv(file):
+            entries = ctx.dotenv(file)
+            local = not is_deployed_env(ctx, file, {e.key: e.value for e in entries})
+            for entry in entries:
                 if not SECRET_NAME.match(entry.key) or "PUBLISHABLE" in entry.key:
                     continue
-                if not entry.value:
-                    if entry.key == "APP_KEY" and ctx.has_framework(Framework.LARAVEL):
-                        yield self.finding("APP_KEY is empty", file=file, line=entry.line)
-                elif entry.value.lower() in WEAK_VALUES or (
-                    len(entry.value) < MIN_SECRET_LENGTH and not entry.value.startswith("base64:")
-                ):
+                if NOT_A_SECRET.search(entry.key) or PLAIN_VALUE.match(entry.value):
+                    continue
+                message = self._problem(ctx, entry.key, entry.value)
+                if message:
                     yield self.finding(
-                        f"{entry.key} is weak or too short", file=file, line=entry.line
+                        message,
+                        file=file,
+                        line=entry.line,
+                        severity=Severity.LOW if local else None,
                     )
+
+    @staticmethod
+    def _problem(ctx: ProjectContext, key: str, value: str) -> str | None:
+        if not value:
+            return (
+                "APP_KEY is empty"
+                if key == "APP_KEY" and ctx.has_framework(Framework.LARAVEL)
+                else None
+            )
+        weak = value.lower() in WEAK_VALUES or (
+            len(value) < MIN_SECRET_LENGTH and not value.startswith("base64:")
+        )
+        return f"{key} is weak or too short" if weak else None

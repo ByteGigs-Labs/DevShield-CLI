@@ -14,6 +14,20 @@ if TYPE_CHECKING:
 APPLICATION_FRAMEWORKS = frozenset(Framework) - {Framework.DOCKER, Framework.GITHUB_ACTIONS}
 
 
+DEPLOYED_NAMES = ("production", "prod", "staging", "stage")
+DEPLOYED_ENVIRONMENTS = frozenset({"production", "prod", "staging"})
+
+
+def is_deployed_env(ctx: ProjectContext, file: str, values: dict[str, str]) -> bool:
+    name = file.rsplit("/", 1)[-1]
+    environment = (values.get("APP_ENV") or values.get("NODE_ENV") or "").lower()
+    return (
+        any(word in name for word in DEPLOYED_NAMES)
+        or environment in DEPLOYED_ENVIRONMENTS
+        or not ctx.is_gitignored(file)
+    )
+
+
 def is_application(ctx: ProjectContext) -> bool:
     return any(d.framework in APPLICATION_FRAMEWORKS for d in ctx.frameworks)
 

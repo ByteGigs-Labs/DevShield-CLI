@@ -7,15 +7,33 @@ from devshield.core.context import ProjectContext
 from devshield.core.models import Category, Finding, Framework, Severity
 from devshield.core.rule import Rule
 from devshield.core.search import Hit, search
+from devshield.core.secrets import find_secrets
 from devshield.rules._bases import PatternRule
 
 REACT = frozenset({Framework.REACT, Framework.NEXTJS})
 NEXT = frozenset({Framework.NEXTJS})
 SANITIZER = re.compile(r"DOMPurify|sanitize|xss|sanitizeHtml", re.I)
-PUBLIC_SECRET = re.compile(
-    r"^(?:NEXT_PUBLIC|VITE|REACT_APP|NUXT_PUBLIC)_\w*(?:SECRET|PASSWORD|PRIVATE|TOKEN|API_KEY|ACCESS_KEY)\w*$"
-)
+PUBLIC_PREFIX = r"^(?:NEXT_PUBLIC|VITE|REACT_APP|NUXT_PUBLIC)_\w*"
+CERTAIN_SECRET = re.compile(PUBLIC_PREFIX + r"(?:SECRET|PASSWORD|PRIVATE|SERVICE_ROLE|SIGNING)\w*$")
+POSSIBLE_SECRET = re.compile(PUBLIC_PREFIX + r"(?:TOKEN|API_KEY|ACCESS_KEY)\w*$")
 ALLOWED_PUBLIC = re.compile(r"PUBLISHABLE|ANON|PUBLIC_KEY|SITE_KEY", re.I)
+SECRET_PREFIXES = ("sk_", "sk-", "secret", "ghp_", "xox")
+SECURITY_HEADER_PACKAGES = frozenset(
+    {"next-secure-headers", "@next-safe/middleware", "next-safe", "helmet"}
+)
+CSP_LOCATIONS = (
+    "next.config.*",
+    "middleware.*",
+    "src/middleware.*",
+    "vercel.json",
+    "netlify.toml",
+    "_headers",
+    "public/_headers",
+    "pages/_document.*",
+    "app/layout.*",
+    "src/app/layout.*",
+)
+SERVER_ONLY = re.compile(r"(?:^|/)(?:api|server|scripts)/")
 BUNDLE_LIMIT = 500 * 1024
 IMAGE_LIMIT = 500 * 1024
 BUILD_DIRECTORIES = ("dist", "build", ".next/static")
@@ -35,11 +53,16 @@ class UnsanitizedHtml(Rule):
     )
     remediation = "Sanitize the HTML with DOMPurify before rendering, or render text instead."
     pattern = re.compile(r"dangerouslySetInnerHTML")
+    static_html = re.compile(
+        r"""__html\s*:\s*(?:JSON\.stringify\(|(?:'[^'$]*'|"[^"$]*"|`[^`$]*`)\s*\})"""
+    )
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for hit in search(ctx, ctx.source_files, self.pattern):
-            if not SANITIZER.search(ctx.read_text(hit.file) or ""):
-                yield self.finding("Raw HTML is rendered unsanitized", file=hit.file, line=hit.line)
+            nearby = "\n".join(ctx.lines(hit.file)[hit.line - 1 : hit.line + 2])
+            if self.static_html.search(nearby) or SANITIZER.search(ctx.read_text(hit.file) or ""):
+                continue
+            yield self.finding("Raw HTML is rendered unsanitized", file=hit.file, line=hit.line)
 
 
 class PublicEnvSecret(Rule):
@@ -57,10 +80,21 @@ class PublicEnvSecret(Rule):
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in [*ctx.env_files, *ctx.env_examples]:
             for entry in ctx.dotenv(file):
-                if PUBLIC_SECRET.match(entry.key) and not ALLOWED_PUBLIC.search(entry.key):
+                if self._exposes_secret(entry.key, entry.value):
                     yield self.finding(
                         f"{entry.key} is bundled into client code", file=file, line=entry.line
                     )
+
+    @staticmethod
+    def _exposes_secret(key: str, value: str) -> bool:
+        if ALLOWED_PUBLIC.search(key):
+            return False
+        if CERTAIN_SECRET.match(key):
+            return True
+        return bool(
+            POSSIBLE_SECRET.match(key)
+            and (value.lower().startswith(SECRET_PREFIXES) or any(find_secrets(value)))
+        )
 
 
 class MissingCsp(Rule):
@@ -76,8 +110,12 @@ class MissingCsp(Rule):
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         config = next(iter(ctx.match("next.config.*")), None)
-        sources = [*ctx.match("next.config.*", "middleware.*", "src/middleware.*")]
-        if config and not any(search(ctx, sources, re.compile("Content-Security-Policy", re.I))):
+        if config is None or SECURITY_HEADER_PACKAGES.intersection(ctx.node_dependencies):
+            return
+        sources = ctx.match(*CSP_LOCATIONS)
+        if not any(
+            search(ctx, sources, re.compile("Content-Security-Policy", re.I), comments=True)
+        ):
             yield self.finding("No Content-Security-Policy header is set", file=config)
 
 
@@ -121,6 +159,8 @@ class HeavyBundle(Rule):
                     file=file,
                 )
         for hit in search(ctx, ctx.source_files, self.heavy):
+            if SERVER_ONLY.search(hit.file):
+                continue
             yield self.finding(
                 f"Imports all of {hit.match.group('name')}",
                 file=hit.file,
@@ -146,6 +186,14 @@ class UnoptimizedImages(Rule):
             if file.lower().endswith(IMAGE_SUFFIXES) and ctx.size(file) > IMAGE_LIMIT:
                 yield self.finding(f"{file} is {ctx.size(file) // 1024} KB", file=file)
         if ctx.has_framework(Framework.NEXTJS):
-            hit: Hit
             for hit in search(ctx, ctx.match("*.jsx", "*.tsx"), self.img_tag):
-                yield self.finding("Use next/image instead of <img>", file=hit.file, line=hit.line)
+                if not self._intentional(ctx, hit):
+                    yield self.finding(
+                        "Use next/image instead of <img>", file=hit.file, line=hit.line
+                    )
+
+    @staticmethod
+    def _intentional(ctx: ProjectContext, hit: Hit) -> bool:
+        lines = ctx.lines(hit.file)
+        context = "\n".join(lines[max(hit.line - 2, 0) : hit.line + 1])
+        return ".svg" in context or "data:" in context or "no-img-element" in context

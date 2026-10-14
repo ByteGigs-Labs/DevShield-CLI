@@ -12,9 +12,6 @@ from typer.testing import CliRunner
 from tests.conftest import MakeProject
 
 runner = CliRunner()
-FIXTURES = Path(__file__).parent / "fixtures"
-INSECURE = str(FIXTURES / "node-express-insecure")
-CLEAN = str(FIXTURES / "laravel-clean")
 
 
 def test_version_flag_and_help() -> None:
@@ -22,48 +19,48 @@ def test_version_flag_and_help() -> None:
     assert "Usage" in runner.invoke(app, []).output
 
 
-def test_clean_project_exits_zero() -> None:
-    result = runner.invoke(app, ["scan", CLEAN, "--no-color"])
+def test_clean_project_exits_zero(clean: str) -> None:
+    result = runner.invoke(app, ["scan", clean, "--no-color"])
     assert result.exit_code == 0
     assert "100 / 100" in result.output and "Low Risk" in result.output
 
 
-def test_findings_at_or_above_fail_on_exit_one() -> None:
-    result = runner.invoke(app, ["scan", INSECURE, "--no-color"])
+def test_findings_at_or_above_fail_on_exit_one(insecure: str) -> None:
+    result = runner.invoke(app, ["scan", insecure, "--no-color"])
     assert result.exit_code == 1
     assert "SH002" in result.output and "server.js:6" in result.output
-    assert runner.invoke(app, ["scan", INSECURE, "--fail-on", "critical", "-q"]).exit_code == 0
+    assert runner.invoke(app, ["scan", insecure, "--fail-on", "critical", "-q"]).exit_code == 0
 
 
-def test_json_output_to_stdout_and_file(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["scan", INSECURE, "--json"])
+def test_json_output_to_stdout_and_file(tmp_path: Path, insecure: str) -> None:
+    result = runner.invoke(app, ["scan", insecure, "--json"])
     document = json.loads(result.output)
     assert document["schema_version"] == 1 and document["findings"]
     target = tmp_path / "out.json"
-    written = runner.invoke(app, ["scan", INSECURE, "--output", str(target)])
+    written = runner.invoke(app, ["scan", insecure, "--output", str(target)])
     assert written.exit_code == 1 and written.output == ""
     assert json.loads(target.read_text())["findings"] == document["findings"]
 
 
-def test_filters() -> None:
+def test_filters(insecure: str) -> None:
     only = json.loads(
-        runner.invoke(app, ["scan", INSECURE, "--json", "--only", "SH002,SH003"]).output
+        runner.invoke(app, ["scan", insecure, "--json", "--only", "SH002,SH003"]).output
     )
     assert {f["rule_id"] for f in only["findings"]} == {"SH002", "SH003"}
     skipped = json.loads(
-        runner.invoke(app, ["scan", INSECURE, "--json", "--exclude-rule", "SH,DOC"]).output
+        runner.invoke(app, ["scan", insecure, "--json", "--exclude-rule", "SH,DOC"]).output
     )
     assert all(not f["rule_id"].startswith(("SH", "DOC")) for f in skipped["findings"])
     high = json.loads(
-        runner.invoke(app, ["scan", INSECURE, "--json", "--min-severity", "high"]).output
+        runner.invoke(app, ["scan", insecure, "--json", "--min-severity", "high"]).output
     )
     assert {f["severity"] for f in high["findings"]} == {"high"}
 
 
-def test_verbose_shows_fixes_and_passed_rules_but_quiet_prints_nothing() -> None:
-    verbose = runner.invoke(app, ["scan", INSECURE, "-v", "--no-color"]).output
+def test_verbose_shows_fixes_and_passed_rules_but_quiet_prints_nothing(insecure: str) -> None:
+    verbose = runner.invoke(app, ["scan", insecure, "-v", "--no-color"]).output
     assert "Fix: " in verbose and "not found" in verbose
-    assert runner.invoke(app, ["scan", INSECURE, "--quiet"]).output == ""
+    assert runner.invoke(app, ["scan", insecure, "--quiet"]).output == ""
 
 
 def test_usage_errors_exit_two(make_project: MakeProject, tmp_path: Path) -> None:
@@ -93,8 +90,8 @@ def test_internal_error_exits_three(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert result.exit_code == 3 and "kaput" in result.output
 
 
-def test_env_command_runs_only_environment_rules() -> None:
-    result = runner.invoke(app, ["env", str(FIXTURES / "laravel-insecure"), "--json"])
+def test_env_command_runs_only_environment_rules(fixtures: Path) -> None:
+    result = runner.invoke(app, ["env", str(fixtures / "laravel-insecure"), "--json"])
     ids = {f["rule_id"] for f in json.loads(result.output)["findings"]}
     assert result.exit_code == 1
     assert ids == {"SH001", "SH202", "SH205", "SH301"}

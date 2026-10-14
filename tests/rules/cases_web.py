@@ -2,12 +2,19 @@ from __future__ import annotations
 
 from tests.rules.helpers import EXPRESS, LARAVEL, NEXT, NODE, REACT, Negative, Positive
 
+JWT = "const jwt = require('jsonwebtoken');\n"
 SESSION_START = "const session = require('express-session');\napp.use(session({\n  secret: s,\n"
 
 POSITIVE: Positive = {
     "SH002": [
         ({"package.json": NODE, "server.js": "app.use(cors({ origin: '*' }));\n"}, {"server.js:1"}),
-        ({"package.json": NODE, "server.js": "app.use(cors());\n"}, {"server.js:1"}),
+        (
+            {
+                "package.json": NODE,
+                "server.js": "const cors = require('cors');\napp.use(cors());\n",
+            },
+            {"server.js:2"},
+        ),
     ],
     "SH003": [
         ({"package.json": EXPRESS, "app.js": "const app = express();\n"}, {"package.json:2"}),
@@ -37,16 +44,19 @@ POSITIVE: Positive = {
         ),
     ],
     "SH102": [
-        ({"package.json": NODE, "a.js": "jwt.verify(token, process.env.S);\n"}, {"a.js:1"}),
+        ({"package.json": NODE, "a.js": JWT + "jwt.verify(token, process.env.S);\n"}, {"a.js:2"}),
         (
-            {"package.json": NODE, "a.js": "jwt.sign(p, 'hunter2hunter2', { expiresIn: '1h' });\n"},
-            {"a.js:1"},
+            {
+                "package.json": NODE,
+                "a.js": JWT + "jwt.sign({ id: 1 }, 'hunter2hunter2', { expiresIn: '1h' });\n",
+            },
+            {"a.js:2"},
         ),
         (
-            {"package.json": NODE, "a.js": "jwt.verify(t, k, { algorithms: ['none'] });\n"},
-            {"a.js:1"},
+            {"package.json": NODE, "a.js": JWT + "jwt.verify(t, k, { algorithms: ['none'] });\n"},
+            {"a.js:2"},
         ),
-        ({"package.json": NODE, "a.js": "jwt.sign(p, process.env.S);\n"}, {"a.js:1"}),
+        ({"package.json": NODE, "a.js": JWT + "jwt.sign({ id: 1 }, process.env.S);\n"}, {"a.js:2"}),
     ],
     "SH103": [
         ({"package.json": EXPRESS, "app.js": "app.post('/login', h);\n"}, {"app.js:1"}),
@@ -62,7 +72,11 @@ POSITIVE: Positive = {
             {"package.json": REACT, ".env": "VITE_API_SECRET=abc\nVITE_API_URL=http://x\n"},
             {".env:1"},
         ),
-        ({"package.json": NEXT, ".env.example": "NEXT_PUBLIC_AUTH_TOKEN=\n"}, {".env.example:1"}),
+        ({"package.json": NEXT, ".env.example": "NEXT_PUBLIC_AUTH_SECRET=\n"}, {".env.example:1"}),
+        (
+            {"package.json": NEXT, ".env": "NEXT_PUBLIC_SERVICE_TOKEN=" + "sk_" + "abc123\n"},
+            {".env:1"},
+        ),
     ],
     "SH007": [
         ({"package.json": NEXT, "next.config.js": "module.exports = {};\n"}, {"next.config.js"}),
@@ -157,9 +171,12 @@ NEGATIVE: Negative = {
     "SH102": [
         {
             "package.json": NODE,
-            "a.js": "jwt.verify(t, process.env.S, { algorithms: ['HS256'] });\n",
+            "a.js": JWT + "jwt.verify(t, process.env.S, { algorithms: ['HS256'] });\n",
         },
-        {"package.json": NODE, "a.js": "jwt.sign(p, process.env.S, { expiresIn: '1h' });\n"},
+        {
+            "package.json": NODE,
+            "a.js": JWT + "jwt.sign({ id: 1 }, process.env.S, { expiresIn: '1h' });\n",
+        },
     ],
     "SH103": [
         {
@@ -228,4 +245,76 @@ NEGATIVE: Negative = {
         {**LARAVEL, "Dockerfile": "FROM php:8.3\nRUN php artisan optimize\n"},
         LARAVEL,
     ],
+}
+
+
+EXTRA_NEGATIVE: Negative = {
+    "SH002": [{"package.json": NODE, "server.js": "app.use(cors());\n"}],
+    "SH008": [
+        {"package.json": NODE, "a.js": "redis.eval(script, 0);\neval('1 + 1');\n"},
+        {"package.json": NODE, "a.js": "// eval(userInput)\n"},
+    ],
+    "SH101": [
+        {
+            "package.json": EXPRESS,
+            "app.js": "const s = require('express-session');\napp.use(s({ secret: x, cookie: cookieOptions }));\n",
+        },
+    ],
+    "SH102": [
+        {"package.json": NODE, "a.js": JWT + "jwt.verify(t, process.env.S, verifyOptions);\n"},
+        {"package.json": NODE, "a.js": JWT + "jwt.sign(payload, process.env.S);\n"},
+        {"package.json": NODE, "a.js": "jwt.verify(token, 'literal');\n"},
+        {
+            "package.json": NODE,
+            "a.js": JWT
+            + "jwt.verify(\n  token,\n  process.env.S,\n  {\n    issuer: 'x',\n    algorithms,\n  },\n);\n",
+        },
+    ],
+    "SH103": [
+        {"package.json": EXPRESS, "app.js": "app.post('/authors', h);\napp.get('/login', h);\n"},
+    ],
+    "SH005": [
+        {
+            "package.json": REACT,
+            "A.jsx": "<script dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />\n",
+        },
+        {
+            "package.json": REACT,
+            "A.jsx": "<p dangerouslySetInnerHTML={{ __html: '<b>hi</b>' }} />\n",
+        },
+    ],
+    "SH006": [
+        {
+            "package.json": NEXT,
+            ".env": "NEXT_PUBLIC_MAPBOX_TOKEN=pk.abc\nVITE_ANALYTICS_API_KEY=abc123\n",
+        },
+    ],
+    "SH007": [
+        {
+            "package.json": NEXT,
+            "next.config.js": "module.exports = {};\n",
+            "vercel.json": '{"headers": [{"key": "Content-Security-Policy"}]}',
+        },
+        {
+            "package.json": '{"dependencies": {"next": "14", "next-secure-headers": "2"}}',
+            "next.config.js": "module.exports = {};\n",
+        },
+    ],
+    "PERF202": [{"package.json": REACT, "pages/api/x.js": "import _ from 'lodash';\n"}],
+    "PERF203": [
+        {"package.json": NEXT, "pages/i.tsx": "<img src='/logo.svg' />\n"},
+        {
+            "package.json": NEXT,
+            "pages/i.tsx": "{/* eslint-disable-next-line @next/next/no-img-element */}\n<img src='/a.png' />\n",
+        },
+    ],
+    "SH105": [
+        {
+            **LARAVEL,
+            "routes/web.php": "<?php\nRoute::get('/login', [A::class, 'show']);\nRoute::post('/authors', [B::class, 'x']);\n",
+        },
+    ],
+}
+NEGATIVE = {
+    k: [*NEGATIVE.get(k, []), *EXTRA_NEGATIVE.get(k, [])] for k in {*NEGATIVE, *EXTRA_NEGATIVE}
 }

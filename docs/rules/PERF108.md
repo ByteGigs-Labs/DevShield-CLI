@@ -1,6 +1,6 @@
 # PERF108: No HEALTHCHECK
 
-**Severity:** low · **Category:** docker · **Applies to:** docker
+**Severity:** info · **Category:** docker · **Applies to:** docker
 
 ## Why it matters
 

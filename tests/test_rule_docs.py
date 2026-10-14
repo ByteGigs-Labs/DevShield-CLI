@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from devshield.reports.rule_docs import render_all
+
 from tests.rules.helpers import REGISTRY
 
 DOCS = Path(__file__).parent.parent / "docs" / "rules"

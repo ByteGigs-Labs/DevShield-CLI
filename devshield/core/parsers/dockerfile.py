@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 _DIRECTIVES = {"syntax", "escape", "check"}
@@ -62,3 +63,41 @@ def parse_dockerfile(text: str) -> list[Instruction]:
         name, _, args = joined.partition(" ")
         instructions.append(Instruction(name.upper(), args.strip(), start, stage))
     return instructions
+
+
+_FROM = re.compile(r"^(?:--\S+\s+)*(?P<image>\S+)(?:\s+as\s+(?P<alias>\S+))?$", re.IGNORECASE)
+
+
+def from_parts(instruction: Instruction) -> tuple[str, str | None] | None:
+    match = _FROM.match(instruction.args)
+    return (match.group("image"), match.group("alias")) if match else None
+
+
+def stages(instructions: list[Instruction]) -> dict[int, list[Instruction]]:
+    grouped: dict[int, list[Instruction]] = {}
+    for instruction in instructions:
+        grouped.setdefault(instruction.stage, []).append(instruction)
+    return grouped
+
+
+def final_stage(instructions: list[Instruction]) -> list[Instruction]:
+    grouped = stages(instructions)
+    return grouped[max(grouped)] if grouped else []
+
+
+def effective_user(instructions: list[Instruction]) -> str | None:
+    grouped = stages(instructions)
+    aliases = {
+        (parts[1] or "").lower(): number
+        for number, stage in grouped.items()
+        if (parts := from_parts(stage[0])) and stage[0].name == "FROM"
+    }
+    number = max(grouped, default=0)
+    while number in grouped:
+        stage = grouped[number]
+        users = [i for i in stage if i.name == "USER"]
+        if users:
+            return users[-1].args.split(":")[0]
+        parent = from_parts(stage[0]) if stage[0].name == "FROM" else None
+        number = aliases.get(parent[0].lower(), -1) if parent else -1
+    return None

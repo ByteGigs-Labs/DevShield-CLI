@@ -203,7 +203,7 @@ class ProjectContext:
 
     @property
     def dockerfiles(self) -> list[str]:
-        return self.match(*DOCKERFILE_PATTERNS)
+        return [f for f in self.match(*DOCKERFILE_PATTERNS) if not f.endswith(".dockerignore")]
 
     @property
     def compose_files(self) -> list[str]:

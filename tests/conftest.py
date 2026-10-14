@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -10,6 +11,14 @@ from devshield.core.registry import RuleRegistry
 from devshield.core.rule import Rule
 
 MakeProject = Callable[[dict[str, str]], Path]
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture(scope="session")
+def fixtures(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    target = tmp_path_factory.mktemp("fixtures") / "projects"
+    shutil.copytree(FIXTURES, target)
+    return target
 
 
 @pytest.fixture
@@ -54,3 +63,13 @@ def registry_of(*rules: type[Rule]) -> RuleRegistry:
     for rule in rules:
         registry.register(rule, builtin=True)
     return registry
+
+
+@pytest.fixture
+def insecure(fixtures: Path) -> str:
+    return str(fixtures / "node-express-insecure")
+
+
+@pytest.fixture
+def clean(fixtures: Path) -> str:
+    return str(fixtures / "laravel-clean")

@@ -28,7 +28,7 @@ POSITIVE: Positive = {
     ],
     "PERF102": [
         (dockerfile('FROM node:20\nCMD ["node"]\n'), {"Dockerfile:1"}),
-        (dockerfile("FROM node:20\nUSER root\n"), {"Dockerfile:2"}),
+        (dockerfile("FROM node:20\nUSER root\n"), {"Dockerfile:1"}),
     ],
     "PERF103": [(dockerfile("FROM node:20\n"), {"Dockerfile"})],
     "PERF104": [(dockerfile("FROM node:20\nRUN npm run build\n"), {"Dockerfile:2"})],
@@ -252,4 +252,50 @@ NEGATIVE: Negative = {
         {**PROJECT, "README.md": README, "CONTRIBUTING.md": "x", "CHANGELOG.md": "x"},
         PROJECT,
     ],
+}
+
+
+EXTRA_NEGATIVE: Negative = {
+    "PERF102": [
+        dockerfile("FROM gcr.io/distroless/static:nonroot\nCOPY a /a\n"),
+        dockerfile("FROM node:20 AS base\nUSER node\nFROM base\nCMD x\n"),
+        {"Dockerfile.dev": "FROM node:20\nCMD x\n"},
+    ],
+    "PERF103": [{**dockerfile("FROM node:20\n"), "Dockerfile.dockerignore": ".git\n"}],
+    "PERF104": [{"Dockerfile.dev": "FROM node:20\nRUN npm run build\n"}],
+    "PERF106": [
+        dockerfile(
+            "FROM a:1\nRUN --mount=type=cache,target=/var/cache/apt apt-get install -y curl\n"
+        ),
+    ],
+    "PERF108": [{"Dockerfile.local": "FROM node:20\n"}],
+    "SH001": [
+        dockerfile("FROM node:20 AS dev\nENV NODE_ENV=development\nFROM node:20-slim\nUSER node\n")
+    ],
+    "SH012": [dockerfile("FROM a:1\nENV DB_PASSWORD_FILE=/run/secrets/db\n")],
+    "DX003": [workflow("on: workflow_call\njobs:\n  a:\n    steps: []\n")],
+    "DX005": [workflow(JOBS + "      - uses: docker://alpine@sha256:abc\n")],
+    "DX006": [workflow(JOBS + "      - run: yarn test\n")],
+    "DX010": [
+        workflow(JOBS + "      - run: echo ${{ secrets.TOKEN }} | docker login --password-stdin\n"),
+    ],
+    "DX011": [
+        workflow(JOBS + '      - run: echo "${{ github.event.pull_request.base.ref }}"\n'),
+    ],
+    "PERF301": [
+        {"package.json": '{"name": "lib", "main": "index.js", "dependencies": {"a": "1"}}'}
+    ],
+    "PERF302": [{"package.json": '{"devDependencies": {"moment": "2", "dayjs": "1"}}'}],
+    "DX001": [{**PROJECT, "Tests/Unit/AThing.php": ""}],
+    "DX002": [{**PROJECT, "cloudbuild.yaml": "steps: []\n"}],
+    "DX007": [{"package.json": '{"version": "0.0.0"}', "composer.json": '{"version": "1.4.0"}'}],
+    "DOC001": [{**PROJECT, "docs/README.md": README}],
+    "DOC002": [
+        {**PROJECT, "LICENSE-MIT": "MIT"},
+        {"package.json": '{"private": true}'},
+        {"package.json": '{"license": "MIT"}'},
+    ],
+}
+NEGATIVE = {
+    k: [*NEGATIVE.get(k, []), *EXTRA_NEGATIVE.get(k, [])] for k in {*NEGATIVE, *EXTRA_NEGATIVE}
 }

@@ -5,8 +5,9 @@ from collections.abc import Iterator
 
 from devshield.core.context import ProjectContext
 from devshield.core.models import Category, Finding, Severity
-from devshield.core.parsers import parse_php_config
+from devshield.core.parsers import final_stage, parse_php_config
 from devshield.core.rule import Rule
+from devshield.rules._bases import is_deployed_env
 
 TRUTHY = frozenset({"true", "1", "yes", "on"})
 LOCAL_ENV_FILES = (".env.local", ".env.development", ".env.test", ".env.testing")
@@ -47,12 +48,11 @@ class DebugEnabled(Rule):
         for file in ctx.env_files:
             if file.endswith(LOCAL_ENV_FILES):
                 continue
-            values = {e.key: e for e in ctx.dotenv(file)}
-            debug = values.get("APP_DEBUG")
-            if debug and debug.value.lower() in TRUTHY:
-                production = "production" in file or (
-                    "APP_ENV" in values and values["APP_ENV"].value == "production"
-                )
+            entries = {e.key: e for e in ctx.dotenv(file)}
+            values = {key: entry.value for key, entry in entries.items()}
+            debug = entries.get("APP_DEBUG")
+            if debug and debug.value.lower() in TRUTHY and is_deployed_env(ctx, file, values):
+                production = "production" in file or values.get("APP_ENV") == "production"
                 yield self.finding(
                     "APP_DEBUG is enabled" + (" in a production environment" if production else ""),
                     file=file,
@@ -67,7 +67,7 @@ class DebugEnabled(Rule):
                 line=parsed[1].get(("debug",)),
             )
         for file in ctx.dockerfiles:
-            for instruction in ctx.dockerfile(file):
+            for instruction in final_stage(ctx.dockerfile(file)):
                 if instruction.name == "ENV" and CONTAINER_DEBUG.search(instruction.args):
                     yield self.finding(
                         "Image sets a development or debug environment",

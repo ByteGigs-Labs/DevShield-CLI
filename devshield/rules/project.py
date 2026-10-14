@@ -12,6 +12,10 @@ from devshield.rules._bases import is_application
 TEST_PATTERNS = (
     "test/",
     "tests/",
+    "Tests/",
+    "e2e/",
+    "cypress/",
+    "*.cy.*",
     "__tests__/",
     "spec/",
     "*.test.*",
@@ -30,15 +34,29 @@ CI_FILES = (
     ".travis.yml",
     "bitbucket-pipelines.yml",
     ".drone.yml",
+    ".buildkite/",
+    ".woodpecker/",
+    ".woodpecker.yml",
+    "cloudbuild.yaml",
+    "appveyor.yml",
+    "bitrise.yml",
+    ".semaphore/",
 )
+DOC_DIRECTORIES = ("", ".github/", "docs/")
+PLACEHOLDER_VERSIONS = frozenset({"0.0.0", ""})
 LABEL_VERSION = re.compile(r"(?:org\.opencontainers\.image\.)?version\s*=\s*\"?([^\"\s]+)")
 LARGE_FILE = 5 * 1024 * 1024
 MIN_README_CHARS = 200
 IGNORED_DIRECTORIES = {Framework.NODE: "node_modules", Framework.LARAVEL: "vendor"}
 
 
-def _root_file(ctx: ProjectContext, *stems: str) -> str | None:
-    return next((f for f in ctx.files if "/" not in f and f.lower().split(".")[0] in stems), None)
+def _doc_file(ctx: ProjectContext, *stems: str, directories: tuple[str, ...] = ("",)) -> str | None:
+    for file in ctx.files:
+        directory, _, name = file.rpartition("/")
+        directory = f"{directory}/" if directory else ""
+        if directory in directories and re.split(r"[.\-_]", name.lower())[0] in stems:
+            return file
+    return None
 
 
 class _ProjectRule(Rule):
@@ -88,8 +106,9 @@ class VersionMismatch(Rule):
         versions: dict[str, str] = {}
         for manifest in ("package.json", "composer.json"):
             data = ctx.json(manifest)
-            if isinstance(data, dict) and data.get("version"):
-                versions[manifest] = str(data["version"])
+            version = str(data.get("version", "")) if isinstance(data, dict) else ""
+            if version not in PLACEHOLDER_VERSIONS:
+                versions[manifest] = version
         for dockerfile in ctx.dockerfiles:
             for instruction in ctx.dockerfile(dockerfile):
                 match = instruction.name == "LABEL" and LABEL_VERSION.search(instruction.args)
@@ -173,7 +192,7 @@ class MissingReadme(_ProjectRule):
     remediation = "Describe what the project does, how to install, run and test it."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        readme = _root_file(ctx, "readme")
+        readme = _doc_file(ctx, "readme", directories=DOC_DIRECTORIES)
         if readme is None:
             yield self.finding("No README found")
         elif len("".join((ctx.read_text(readme) or "").split())) < MIN_README_CHARS:
@@ -189,7 +208,11 @@ class MissingLicense(_ProjectRule):
     remediation = "Add a LICENSE file (choosealicense.com can help you pick one)."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        if _root_file(ctx, "license", "licence", "copying", "unlicense") is None:
+        manifests = [ctx.json("package.json"), ctx.json("composer.json")]
+        declared = any(
+            isinstance(m, dict) and (m.get("license") or m.get("private")) for m in manifests
+        )
+        if not declared and _doc_file(ctx, "license", "licence", "copying", "unlicense") is None:
             yield self.finding("No LICENSE file found")
 
 
@@ -204,8 +227,8 @@ class MissingProjectDocs(_ProjectRule):
     remediation = "Add CONTRIBUTING.md and CHANGELOG.md."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        if _root_file(ctx, "readme") is None:
+        if _doc_file(ctx, "readme", directories=DOC_DIRECTORIES) is None:
             return
         for stem, name in (("contributing", "CONTRIBUTING"), ("changelog", "CHANGELOG")):
-            if _root_file(ctx, stem) is None:
+            if _doc_file(ctx, stem, directories=DOC_DIRECTORIES) is None:
                 yield self.finding(f"No {name} file found")

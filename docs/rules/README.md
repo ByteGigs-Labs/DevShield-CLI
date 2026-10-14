@@ -24,7 +24,7 @@
 | [PERF105](PERF105.md) | low | docker | ADD used instead of COPY |
 | [PERF106](PERF106.md) | low | docker | Package install leaves caches or extras |
 | [PERF107](PERF107.md) | low | docker | Dependency install after copying the whole project |
-| [PERF108](PERF108.md) | low | docker | No HEALTHCHECK |
+| [PERF108](PERF108.md) | info | docker | No HEALTHCHECK |
 | [PERF201](PERF201.md) | low | frontend | Production source maps enabled |
 | [PERF202](PERF202.md) | medium | frontend | Large frontend bundle or heavy import |
 | [PERF203](PERF203.md) | low | frontend | Unoptimized images |

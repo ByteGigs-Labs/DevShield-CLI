@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 from devshield.core.context import ProjectContext
 from devshield.core.models import Category, Finding, Framework, Severity
-from devshield.core.parsers import Instruction
+from devshield.core.parsers import effective_user, final_stage, from_parts, stages
 from devshield.core.rule import Rule
 
 DOCKER = frozenset({Framework.DOCKER})
@@ -20,8 +20,17 @@ INSTALL = re.compile(
     r"npm (?:ci|install)|yarn install|pnpm install|composer install|pip install|bundle install"
 )
 ARCHIVE = re.compile(r"\.(?:tar|tgz|tar\.gz|tar\.xz|tar\.bz2)$")
-FROM_ARGS = re.compile(r"^(?:--\S+\s+)*(?P<image>\S+)(?:\s+as\s+(?P<alias>\S+))?$", re.I)
-HOST_PORT = re.compile(r"^\d+:\d+(?:/\w+)?$")
+HOST_PORT = re.compile(r"^(?:0\.0\.0\.0:)?\d+:\d+(?:/\w+)?$")
+DEVELOPMENT_FILE = re.compile(
+    r"(?:^|[./_-])(?:dev|development|local|test|override)(?:[./_-]|$)", re.I
+)
+NON_ROOT_IMAGE = re.compile(r"nonroot|unprivileged|chainguard|distroless|scratch", re.I)
+SECRET_FILE_KEY = re.compile(r"_(?:FILE|PATH)$", re.I)
+CACHE_MOUNT = "--mount=type=cache"
+
+
+def _production_dockerfiles(ctx: ProjectContext) -> list[str]:
+    return [f for f in ctx.dockerfiles if not DEVELOPMENT_FILE.search(f.rsplit("/", 1)[-1])]
 
 
 def _split_image(image: str) -> tuple[str, str, bool]:
@@ -32,16 +41,12 @@ def _split_image(image: str) -> tuple[str, str, bool]:
     return name, tag, bool(digest)
 
 
-def _stages(instructions: list[Instruction]) -> dict[int, list[Instruction]]:
-    stages: dict[int, list[Instruction]] = {}
-    for instruction in instructions:
-        stages.setdefault(instruction.stage, []).append(instruction)
-    return stages
-
-
-def _final_stage(instructions: list[Instruction]) -> list[Instruction]:
-    stages = _stages(instructions)
-    return stages[max(stages)] if stages else []
+def _short_port(port: object) -> str | None:
+    if isinstance(port, dict):
+        published = port.get("published")
+        exposed = port.get("host_ip") in (None, "0.0.0.0")
+        return f"{published}:{port.get('target')}" if published and exposed else None
+    return str(port)
 
 
 def _env_pairs(args: str) -> list[tuple[str, str]]:
@@ -70,11 +75,12 @@ class UnpinnedBaseImage(Rule):
         for file in ctx.dockerfiles:
             aliases: set[str] = set()
             for instruction in ctx.dockerfile(file):
-                if instruction.name != "FROM" or not (match := FROM_ARGS.match(instruction.args)):
+                parts = from_parts(instruction) if instruction.name == "FROM" else None
+                if parts is None:
                     continue
-                image = match.group("image")
-                if match.group("alias"):
-                    aliases.add(match.group("alias").lower())
+                image, alias = parts
+                if alias:
+                    aliases.add(alias.lower())
                 name, tag, digest = _split_image(image)
                 if image.lower() in aliases or image == "scratch" or "$" in image:
                     continue
@@ -100,14 +106,17 @@ class RunsAsRoot(Rule):
     remediation = "Create an unprivileged user and switch to it with a USER instruction."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        for file in ctx.dockerfiles:
-            stage = _final_stage(ctx.dockerfile(file))
-            users = [i for i in stage if i.name == "USER"]
-            if stage and (not users or users[-1].args.split(":")[0] in {"root", "0"}):
+        for file in _production_dockerfiles(ctx):
+            instructions = ctx.dockerfile(file)
+            stage = final_stage(instructions)
+            base = from_parts(stage[0]) if stage and stage[0].name == "FROM" else None
+            if not stage or (base and NON_ROOT_IMAGE.search(base[0])):
+                continue
+            if effective_user(instructions) in {None, "root", "0"}:
                 yield self.finding(
                     "The final stage never switches away from root",
                     file=file,
-                    line=(users[-1] if users else stage[0]).line,
+                    line=stage[0].line,
                 )
 
 
@@ -127,7 +136,8 @@ class MissingDockerignore(Rule):
         for file in ctx.dockerfiles:
             directory = file.rpartition("/")[0]
             ignore = f"{directory}/.dockerignore" if directory else ".dockerignore"
-            if not ctx.exists(ignore) and not ctx.exists(".dockerignore"):
+            specific = f"{file}.dockerignore"
+            if not any(ctx.exists(candidate) for candidate in (ignore, ".dockerignore", specific)):
                 yield self.finding("No .dockerignore next to this Dockerfile", file=file)
 
 
@@ -144,9 +154,9 @@ class SingleStageBuild(Rule):
     remediation = "Use a multi-stage build and copy only the built artifacts into the final stage."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        for file in ctx.dockerfiles:
+        for file in _production_dockerfiles(ctx):
             instructions = ctx.dockerfile(file)
-            if len(_stages(instructions)) != 1:
+            if len(stages(instructions)) != 1:
                 continue
             for run in (i for i in instructions if i.name == "RUN" and BUILD_TOOLS.search(i.args)):
                 yield self.finding(
@@ -196,7 +206,9 @@ class PackageInstallHygiene(Rule):
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in ctx.dockerfiles:
-            for run in (i for i in ctx.dockerfile(file) if i.name == "RUN"):
+            for run in (
+                i for i in ctx.dockerfile(file) if i.name == "RUN" and CACHE_MOUNT not in i.args
+            ):
                 problems = []
                 if "apt-get install" in run.args:
                     if "--no-install-recommends" not in run.args:
@@ -224,8 +236,8 @@ class CacheUnfriendlyLayers(Rule):
     remediation = "COPY only the manifest and lockfile, install dependencies, then COPY the rest."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        for file in ctx.dockerfiles:
-            for stage in _stages(ctx.dockerfile(file)).values():
+        for file in _production_dockerfiles(ctx):
+            for stage in stages(ctx.dockerfile(file)).values():
                 copied_all = False
                 for instruction in stage:
                     if instruction.name == "COPY" and re.search(
@@ -248,7 +260,7 @@ class CacheUnfriendlyLayers(Rule):
 class MissingHealthcheck(Rule):
     id = "PERF108"
     title = "No HEALTHCHECK"
-    severity = Severity.LOW
+    severity = Severity.INFO
     category = Category.DOCKER
     applies_to = DOCKER
     description = (
@@ -257,8 +269,8 @@ class MissingHealthcheck(Rule):
     remediation = "Add a HEALTHCHECK instruction that calls a lightweight endpoint."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        for file in ctx.dockerfiles:
-            stage = _final_stage(ctx.dockerfile(file))
+        for file in _production_dockerfiles(ctx):
+            stage = final_stage(ctx.dockerfile(file))
             if stage and not any(i.name == "HEALTHCHECK" for i in stage):
                 yield self.finding("The final stage has no HEALTHCHECK", file=file)
 
@@ -285,7 +297,7 @@ class ComposeExposure(Rule):
             for name, service in (services if isinstance(services, dict) else {}).items():
                 if not isinstance(service, dict):
                     continue
-                for message, severity in self._problems(service):
+                for message, severity in self._problems(service, file):
                     yield self.finding(
                         f"Service '{name}' {message}",
                         file=file,
@@ -294,7 +306,7 @@ class ComposeExposure(Rule):
                     )
 
     @staticmethod
-    def _problems(service: dict[str, object]) -> Iterator[tuple[str, Severity | None]]:
+    def _problems(service: dict[str, object], file: str) -> Iterator[tuple[str, Severity | None]]:
         if service.get("privileged") is True:
             yield "runs privileged", None
         if service.get("network_mode") == "host" or service.get("pid") == "host":
@@ -304,9 +316,11 @@ class ComposeExposure(Rule):
             yield "mounts the Docker socket", None
         ports = service.get("ports")
         if DATABASE_IMAGES.search(str(service.get("image", ""))) and isinstance(ports, list):
-            for port in map(str, ports):
-                if HOST_PORT.match(port):
-                    yield f"publishes database port {port} on all interfaces", None
+            local = Severity.LOW if DEVELOPMENT_FILE.search(file.rsplit("/", 1)[-1]) else None
+            for port in ports:
+                text = _short_port(port)
+                if text and HOST_PORT.match(text):
+                    yield f"publishes database port {text} on all interfaces", local
 
 
 class SecretsInImage(Rule):
@@ -333,7 +347,12 @@ class SecretsInImage(Rule):
                     else []
                 )
                 for key, value in pairs:
-                    if SECRET_KEY.search(key) and value and "$" not in value:
+                    if (
+                        SECRET_KEY.search(key)
+                        and not SECRET_FILE_KEY.search(key)
+                        and value
+                        and "$" not in value
+                    ):
                         yield self.finding(
                             f"{instruction.name} {key} sets a literal secret",
                             file=file,

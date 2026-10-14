@@ -10,7 +10,7 @@ from devshield.core.models import Severity
 
 PLACEHOLDER = re.compile(
     r"example|placeholder|change[-_]?me|your[-_ ]|<[^>]+>|\$\{|\{\{|x{4,}|\*{3,}|dummy|sample"
-    r"|redacted|todo|process\.env|env\(",
+    r"|redacted|todo|process\.env|env\(|\{[^}]*\}|%[sd(]",
     re.IGNORECASE,
 )
 TRIVIAL_PASSWORDS = frozenset({"password", "pass", "root", "postgres", "secret", "admin", "user"})
@@ -24,6 +24,7 @@ class SecretPattern:
     severity: Severity
     group: int = 0
     min_entropy: float = 0.0
+    generic: bool = False
 
 
 @dataclass(frozen=True)
@@ -39,8 +40,9 @@ def _pattern(
     severity: Severity = Severity.HIGH,
     group: int = 0,
     min_entropy: float = 0.0,
+    generic: bool = False,
 ) -> SecretPattern:
-    return SecretPattern(name, re.compile(regex), severity, group, min_entropy)
+    return SecretPattern(name, re.compile(regex), severity, group, min_entropy, generic)
 
 
 PATTERNS: tuple[SecretPattern, ...] = (
@@ -65,14 +67,25 @@ PATTERNS: tuple[SecretPattern, ...] = (
         rf"(?i)\b[\w.-]*(?:{_KEYWORDS})[\w.-]*[\"']?\s*[:=]>?\s*[\"']([^\"'\s]{{16,}})[\"']",
         group=1,
         min_entropy=3.0,
+        generic=True,
     ),
     _pattern(
         "Hard-coded secret",
         rf"(?i)^\s*[\w.-]*(?:{_KEYWORDS})[\w.-]*\s*[:=]\s*([^\s\"'#]{{16,}})\s*$",
         group=1,
         min_entropy=3.7,
+        generic=True,
     ),
 )
+
+
+def _looks_like_text(value: str) -> bool:
+    return (
+        not any(c.isdigit() for c in value)
+        or value.startswith(("http", "/", "./", "../"))
+        or "%" in value
+        or re.fullmatch(r"[A-Za-z_.-]+", value) is not None
+    )
 
 
 def entropy(value: str) -> float:
@@ -88,6 +101,7 @@ def find_secrets(line: str) -> Iterator[SecretMatch]:
                 PLACEHOLDER.search(value)
                 or value.lower() in TRIVIAL_PASSWORDS
                 or entropy(value) < pattern.min_entropy
+                or (pattern.generic and _looks_like_text(value))
             ):
                 continue
             yield SecretMatch(pattern.name, pattern.severity, value)

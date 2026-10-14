@@ -68,10 +68,15 @@ class LockfileProblem(Rule):
         yield from self._composer(ctx)
 
     def _node(self, ctx: ProjectContext) -> Iterator[Finding]:
-        if not ctx.exists("package.json"):
+        manifest = ctx.json("package.json")
+        if not isinstance(manifest, dict):
             return
         if not any(ctx.exists(lock) for lock in NODE_LOCKFILES):
-            yield self.finding("package.json has no lockfile", file="package.json")
+            published_library = not manifest.get("private") and any(
+                key in manifest for key in ("main", "exports", "bin")
+            )
+            if not published_library:
+                yield self.finding("package.json has no lockfile", file="package.json")
             return
         root = _object(_object(ctx.json("package-lock.json"), "packages"), "")
         if not root:
@@ -128,7 +133,7 @@ class DuplicateDependencies(Rule):
     remediation = "Standardise on one library per purpose and run `npm dedupe`."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        declared = ctx.node_dependencies
+        declared = _object(ctx.json("package.json"), "dependencies")
         for group in OVERLAPPING:
             present = [name for name in group if name in declared]
             if len(present) > 1:

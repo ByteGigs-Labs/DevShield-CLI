@@ -6,7 +6,14 @@ from collections.abc import Iterator
 from devshield.core.context import ProjectContext
 from devshield.core.models import Category, Finding, Framework, Severity
 from devshield.core.rule import Rule
-from devshield.core.search import Hit, search, window
+from devshield.core.search import (
+    Hit,
+    call_arguments,
+    is_string_literal,
+    line_in_call,
+    property_value,
+    search,
+)
 from devshield.rules._bases import PatternRule
 
 NODE = frozenset({Framework.NODE})
@@ -19,13 +26,31 @@ POWERED_BY_DISABLED = re.compile(
     r"(?:disable\(\s*|set\(\s*)['\"]x-powered-by['\"]\s*(?:\)|,\s*false)", re.I
 )
 AUTH_ROUTE = re.compile(
-    r"\.(?:post|all|put)\(\s*['\"][^'\"]*(?:login|signin|sign-in|auth|register|signup|password|token)",
+    r"\.(?:post|put|patch|all)\(\s*['\"][^'\"]*"
+    r"(?:login|signin|sign-in|signup|sign-up|register|forgot|reset|password|auth(?![a-z])|token)",
     re.I,
 )
-RATE_LIMIT_PACKAGES = ("express-rate-limit", "rate-limiter-flexible", "express-slow-down")
+RATE_LIMIT_PACKAGES = (
+    "express-rate-limit",
+    "rate-limiter-flexible",
+    "express-slow-down",
+    "express-brute",
+    "limiter",
+)
+HELMET_IMPORT = re.compile(r"""(?:require\(\s*|from\s+)['"]helmet['"]""")
+CORS_IMPORT = re.compile(r"""(?:require\(\s*|from\s+)['"]cors['"]""")
+SESSION_CALL = re.compile(r"\b(session|cookieSession)\s*\(\s*\{")
+SESSION_LIBRARIES = re.compile(r"express-session|cookie-session")
 JWT_CALL = re.compile(r"\bjwt\.(sign|verify)\s*\(")
-JWT_NONE = re.compile(r"algorithms?\s*:\s*\[?\s*['\"]none['\"]", re.I)
-JWT_LITERAL_SECRET = re.compile(r"""jwt\.(?:sign|verify)\s*\([^,()]+,\s*['"][^'"]+['"]""")
+JWT_NONE = re.compile(r"\bnone\b", re.I)
+
+
+def _uses_helmet(ctx: ProjectContext) -> bool:
+    return "helmet" in ctx.node_dependencies or any(search(ctx, ctx.source_files, HELMET_IMPORT))
+
+
+def _is_object(argument: str) -> bool:
+    return argument.startswith("{")
 
 
 class WildcardCors(Rule):
@@ -39,19 +64,29 @@ class WildcardCors(Rule):
         "Combined with credentials it exposes authenticated sessions."
     )
     remediation = "List the exact origins that need access instead of '*' or a bare cors() call."
-    pattern = re.compile(
-        r"""origin\s*:\s*['"]\*['"]|Access-Control-Allow-Origin['"]\s*,\s*['"]\*['"]|\bcors\(\s*\)"""
+    wildcard = re.compile(
+        r"""origin\s*:\s*['"]\*['"]|Access-Control-Allow-Origin['"]\s*,\s*['"]\*['"]"""
     )
+    bare = re.compile(r"\bcors\(\s*\)")
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        for hit in search(ctx, ctx.source_files, self.pattern):
-            with_credentials = CREDENTIALS.search(ctx.read_text(hit.file) or "")
-            yield self.finding(
-                "CORS allows any origin" + (" with credentials" if with_credentials else ""),
-                file=hit.file,
-                line=hit.line,
-                severity=Severity.HIGH if with_credentials else None,
-            )
+        for file in ctx.source_files:
+            text = ctx.read_text(file) or ""
+            patterns = [self.wildcard, *([self.bare] if CORS_IMPORT.search(text) else [])]
+            seen: set[int] = set()
+            for pattern in patterns:
+                for hit in search(ctx, [file], pattern):
+                    if hit.line in seen:
+                        continue
+                    seen.add(hit.line)
+                    with_credentials = CREDENTIALS.search(text)
+                    yield self.finding(
+                        "CORS allows any origin"
+                        + (" with credentials" if with_credentials else ""),
+                        file=file,
+                        line=hit.line,
+                        severity=Severity.HIGH if with_credentials else None,
+                    )
 
 
 class MissingSecurityHeaders(Rule):
@@ -67,9 +102,7 @@ class MissingSecurityHeaders(Rule):
     remediation = "Install helmet and add `app.use(helmet())` before your routes."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        if "helmet" in ctx.node_dependencies or any(
-            search(ctx, ctx.source_files, SECURITY_HEADERS)
-        ):
+        if _uses_helmet(ctx) or any(search(ctx, ctx.source_files, SECURITY_HEADERS)):
             return
         yield self.finding(
             "No helmet or manual security headers found",
@@ -88,9 +121,7 @@ class PoweredByHeader(Rule):
     remediation = "Call `app.disable('x-powered-by')` or use helmet."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        if "helmet" in ctx.node_dependencies or any(
-            search(ctx, ctx.source_files, POWERED_BY_DISABLED)
-        ):
+        if _uses_helmet(ctx) or any(search(ctx, ctx.source_files, POWERED_BY_DISABLED)):
             return
         app = next(search(ctx, ctx.source_files, re.compile(r"\bexpress\(\s*\)")), None)
         if app:
@@ -111,10 +142,16 @@ class UnsafeCodeExecution(PatternRule):
         "Avoid eval. Use execFile/spawn with an argument array instead of building a shell string."
     )
     pattern = re.compile(
-        r"\beval\s*\(|\bnew Function\s*\("
-        r"""|\bexec(?:Sync)?\s*\(\s*(?:`[^`]*\$\{|["'][^"']*["']\s*\+)"""
+        r"(?<![\w.$])eval\s*\(|\bnew Function\s*\("
+        r"""|(?<![\w$])exec(?:Sync)?\s*\(\s*(?:`[^`]*\$\{|["'][^"']*["']\s*\+)"""
     )
     message = "Code or command is built dynamically"
+
+    def accept(self, ctx: ProjectContext, hit: Hit) -> bool:
+        if "exec" in hit.match.group():
+            return True
+        arguments = call_arguments(ctx, hit)
+        return not (arguments and all(is_string_literal(a) for a in arguments))
 
 
 class InsecureSession(Rule):
@@ -128,33 +165,52 @@ class InsecureSession(Rule):
         "over plain HTTP, or abused in cross-site requests."
     )
     remediation = "Set `cookie: { secure: true, httpOnly: true, sameSite: 'lax' }`."
-    call = re.compile(r"\b(?:session|cookieSession)\s*\(\s*\{")
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
-        for use in search(ctx, ctx.source_files, self.call):
-            text = ctx.read_text(use.file) or ""
-            if not re.search(r"express-session|cookie-session", text):
+        for use in search(ctx, ctx.source_files, SESSION_CALL):
+            if not SESSION_LIBRARIES.search(ctx.read_text(use.file) or ""):
                 continue
-            for flag, bad, severity in (
-                ("secure", r"secure\s*:\s*false", Severity.MEDIUM),
-                ("httpOnly", r"httpOnly\s*:\s*false", Severity.MEDIUM),
-                ("sameSite", r"sameSite\s*:\s*(?:false|['\"]none['\"])", Severity.LOW),
-            ):
-                explicit = next(search(ctx, [use.file], re.compile(bad, re.I)), None)
-                if explicit:
+            arguments = call_arguments(ctx, use)
+            if not arguments or not _is_object(arguments[0]):
+                continue
+            options = arguments[0]
+            if use.match.group(1) == "session":
+                options = property_value(options, "cookie") or ""
+                if not options:
                     yield self.finding(
-                        f"Session cookie sets {flag} to an unsafe value",
-                        file=use.file,
-                        line=explicit.line,
-                        severity=severity,
-                    )
-                elif flag != "httpOnly" and not re.search(rf"{flag}\s*:", text):
-                    yield self.finding(
-                        f"Session cookie does not set {flag}",
+                        "Session cookie options are not set",
                         file=use.file,
                         line=use.line,
                         severity=Severity.LOW,
                     )
+                    continue
+            if not _is_object(options):
+                continue
+            yield from self._flags(ctx, use, options)
+
+    def _flags(self, ctx: ProjectContext, use: Hit, options: str) -> Iterator[Finding]:
+        for flag, unsafe in (
+            ("secure", {"false"}),
+            ("httpOnly", {"false"}),
+            ("sameSite", {"false", "'none'", '"none"'}),
+        ):
+            value = property_value(options, flag)
+            severity = Severity.LOW if flag == "sameSite" else None
+            if value is None and flag != "httpOnly":
+                yield self.finding(
+                    f"Session cookie does not set {flag}",
+                    file=use.file,
+                    line=use.line,
+                    severity=Severity.LOW,
+                )
+            elif value in unsafe:
+                line = line_in_call(ctx, use, re.compile(rf"\b{flag}\b\s*:\s*{re.escape(value)}"))
+                yield self.finding(
+                    f"Session cookie sets {flag} to an unsafe value",
+                    file=use.file,
+                    line=line,
+                    severity=severity,
+                )
 
 
 class JwtMisuse(Rule):
@@ -174,27 +230,39 @@ class JwtMisuse(Rule):
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for hit in search(ctx, ctx.source_files, JWT_CALL):
-            block = window(ctx, hit, after=5)
+            if "jsonwebtoken" not in (ctx.read_text(hit.file) or ""):
+                continue
+            arguments = call_arguments(ctx, hit)
+            if not arguments:
+                continue
             kind = hit.match.group(1)
-            problems = (
-                (JWT_NONE.search(block), "accepts the 'none' algorithm", Severity.CRITICAL),
-                (JWT_LITERAL_SECRET.search(hit.text), "uses a hard-coded secret", Severity.HIGH),
-                (
-                    kind == "verify" and "algorithms" not in block,
-                    "does not pin the allowed algorithms",
-                    Severity.MEDIUM,
-                ),
-                (
-                    kind == "sign" and not re.search(r"expiresIn|\bexp\b", block),
-                    "issues a token without an expiry",
-                    Severity.LOW,
-                ),
-            )
-            for present, message, severity in problems:
-                if present:
-                    yield self.finding(
-                        f"jwt.{kind} {message}", file=hit.file, line=hit.line, severity=severity
-                    )
+            for message, severity in self._problems(kind, arguments):
+                yield self.finding(
+                    f"jwt.{kind} {message}", file=hit.file, line=hit.line, severity=severity
+                )
+
+    @staticmethod
+    def _problems(kind: str, arguments: list[str]) -> Iterator[tuple[str, Severity]]:
+        payload = arguments[0]
+        secret = arguments[1] if len(arguments) > 1 else ""
+        options = arguments[2] if len(arguments) > 2 else ""
+        known_options = not options or _is_object(options)
+        has_algorithms = _is_object(options) and re.search(r"\balgorithms\b", options) is not None
+        algorithms = property_value(options, "algorithms") if has_algorithms else None
+        if algorithms and JWT_NONE.search(algorithms):
+            yield "accepts the 'none' algorithm", Severity.CRITICAL
+        if is_string_literal(secret):
+            yield "uses a hard-coded secret", Severity.HIGH
+        if kind == "verify" and known_options and not has_algorithms:
+            yield "does not pin the allowed algorithms", Severity.MEDIUM
+        if (
+            kind == "sign"
+            and known_options
+            and _is_object(payload)
+            and not re.search(r"\bexp\b", payload)
+            and not (options and re.search(r"\bexpiresIn\b", options))
+        ):
+            yield "issues a token without an expiry", Severity.LOW
 
 
 class MissingRateLimit(Rule):
@@ -209,7 +277,7 @@ class MissingRateLimit(Rule):
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         if any(package in ctx.node_dependencies for package in RATE_LIMIT_PACKAGES):
             return
-        route: Hit | None = next(search(ctx, ctx.source_files, AUTH_ROUTE), None)
+        route = next(search(ctx, ctx.source_files, AUTH_ROUTE), None)
         if route:
             yield self.finding(
                 "Authentication route has no rate limiter", file=route.file, line=route.line

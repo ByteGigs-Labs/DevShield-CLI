@@ -68,6 +68,7 @@ ignore = ["S101"]
 "tests/**" = ["S105", "S106", "S108", "S603", "S607"]
 "tests/rules/cases_*.py" = ["E501"]
 "devshield/core/git.py" = ["S603", "S607"]
+"devshield/rules/docker.py" = ["S104"]
 
 [tool.mypy]
 python_version = "3.11"

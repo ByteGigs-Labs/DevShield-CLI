@@ -110,20 +110,6 @@
       "fixable": false
     },
     {
-      "rule_id": "PERF108",
-      "title": "No HEALTHCHECK",
-      "severity": "low",
-      "category": "docker",
-      "message": "The final stage has no HEALTHCHECK",
-      "location": {
-        "file": "Dockerfile",
-        "line": null,
-        "column": null
-      },
-      "remediation": "Add a HEALTHCHECK instruction that calls a lightweight endpoint.",
-      "fixable": false
-    },
-    {
       "rule_id": "PERF104",
       "title": "Build tools left in the final image",
       "severity": "low",
@@ -149,6 +135,20 @@
         "column": null
       },
       "remediation": "Use `apt-get install --no-install-recommends` and remove /var/lib/apt/lists in the same RUN; use `apk add --no-cache`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF108",
+      "title": "No HEALTHCHECK",
+      "severity": "info",
+      "category": "docker",
+      "message": "The final stage has no HEALTHCHECK",
+      "location": {
+        "file": "Dockerfile",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add a HEALTHCHECK instruction that calls a lightweight endpoint.",
       "fixable": false
     }
   ],
@@ -181,6 +181,6 @@
     "SH302"
   ],
   "suppressed": 0,
-  "score": 19,
+  "score": 27,
   "band": "critical"
 }
