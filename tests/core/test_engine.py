@@ -96,6 +96,8 @@ class TestRegistry:
         good, factory = make_rule("ACME001"), make_rule("ACME002")
 
         class Entry:
+            dist = None
+
             def __init__(self, name: str, obj: object) -> None:
                 self.name, self._obj = name, obj
 
@@ -116,6 +118,13 @@ class TestRegistry:
         assert [r.id for r in registry.all()] == ["ACME001", "ACME002"]
         assert len(registry.load_errors) == 2
         assert "boom" in registry.load_errors[0] and "reserved" in registry.load_errors[1]
+        assert [(p.name, p.rules, p.error is None) for p in registry.plugins] == [
+            ("good", ("ACME001",), True),
+            ("factory", ("ACME002",), True),
+            ("broken", (), False),
+            ("reserved", (), True),
+        ]
+        assert registry.plugin_of("ACME002") == "factory" and registry.plugin_of("SH001") is None
 
 
 class TestConfig:

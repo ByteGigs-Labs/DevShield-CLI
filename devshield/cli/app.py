@@ -47,6 +47,8 @@ app = typer.Typer(
 )
 rules_app = typer.Typer(help="Browse the built-in rules.", no_args_is_help=True)
 app.add_typer(rules_app, name="rules")
+plugins_app = typer.Typer(help="Inspect installed plugins.", no_args_is_help=True)
+app.add_typer(plugins_app, name="plugins")
 docker_app = typer.Typer(help="Docker image commands.", no_args_is_help=True)
 app.add_typer(docker_app, name="docker")
 
@@ -485,10 +487,43 @@ def docker_scan(
 @rules_app.command("list")
 def rules_list() -> None:
     """List every rule."""
-    table = Table("ID", "Severity", "Category", "Title")
-    for rule in default_registry().all():
-        table.add_row(rule.id, rule.severity.value, rule.category.value, rule.title)
-    Console().print(table)
+    registry = default_registry()
+    table = Table("ID", "Severity", "Category", "Title", "Source")
+    for rule in registry.all():
+        plugin = registry.plugin_of(rule.id)
+        table.add_row(
+            rule.id,
+            rule.severity.value,
+            rule.category.value,
+            rule.title,
+            f"plugin: {plugin}" if plugin else "built-in",
+        )
+    console = Console()
+    console.print(table)
+    for problem in registry.load_errors:
+        console.print(f"⚠ {problem}", style="yellow", markup=False)
+
+
+@plugins_app.command("list")
+def plugins_list() -> None:
+    """List installed plugins and the rules each one provides."""
+    registry = default_registry()
+    console = Console()
+    if not registry.plugins:
+        console.print("No plugins installed. See docs/plugins.md to write one.")
+    else:
+        table = Table("Plugin", "Package", "Version", "Rules", "Status")
+        for plugin in registry.plugins:
+            table.add_row(
+                plugin.name,
+                plugin.distribution or "-",
+                plugin.version or "-",
+                ", ".join(plugin.rules) or "-",
+                "failed to load" if plugin.error else "ok",
+            )
+        console.print(table)
+    for problem in registry.load_errors:
+        console.print(f"⚠ {problem}", style="yellow", markup=False)
 
 
 @rules_app.command("show")

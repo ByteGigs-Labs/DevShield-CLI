@@ -48,6 +48,17 @@ def _select_rules(registry: RuleRegistry, config: Config, options: ScanOptions) 
     ]
 
 
+def _checked(rule: Rule, ctx: ProjectContext, plugin: bool) -> list[Finding]:
+    """Run a rule to completion. Plugin findings are validated before they reach a report."""
+    found = list(rule.check(ctx))
+    if not plugin:
+        return found
+    for finding in found:
+        if not isinstance(finding, Finding) or finding.rule_id != rule.id:
+            raise TypeError(f"returned a finding that is not a Finding with id {rule.id}")
+    return found
+
+
 def run_scan(
     root: Path | str,
     config: Config | None = None,
@@ -64,18 +75,27 @@ def run_scan(
     rules_run: list[str] = []
     timings: dict[str, float] = {}
     errors: list[RuleError] = []
+    warnings: list[str] = list(registry.load_errors)
     raw: list[Finding] = []
     for rule_cls in _select_rules(registry, config, options):
-        rule = rule_cls()
-        if not rule.applies(ctx):
-            continue
-        rules_run.append(rule.id)
+        plugin = registry.plugin_of(rule_cls.id)
         rule_started = perf_counter()
         try:
-            raw.extend(rule.check(ctx))
+            rule = rule_cls()
+            if not rule.applies(ctx):
+                continue
+            rules_run.append(rule.id)
+            raw.extend(_checked(rule, ctx, plugin is not None))
         except Exception as exc:
-            errors.append(RuleError(rule_id=rule.id, message=f"{type(exc).__name__}: {exc}"))
-        timings[rule.id] = perf_counter() - rule_started
+            problem = f"{type(exc).__name__}: {exc}"
+            if plugin is None:
+                errors.append(RuleError(rule_id=rule_cls.id, message=problem))
+            else:
+                # A third-party rule must never fail the scan; it only produces a warning.
+                warnings.append(
+                    f"Plugin {plugin!r}: rule {rule_cls.id} crashed and was skipped ({problem})"
+                )
+        timings[rule_cls.id] = perf_counter() - rule_started
 
     minimum = options.min_severity or config.severity.minimum
     ignored_paths = build_spec(config.ignored_paths)
@@ -97,7 +117,7 @@ def run_scan(
         frameworks=ctx.frameworks,
         findings=tuple(sorted(findings, key=_sort_key)),
         errors=tuple(errors),
-        warnings=tuple(registry.load_errors),
+        warnings=tuple(warnings),
         rules_run=tuple(rules_run),
         suppressed=suppressed,
         baselined=baselined,

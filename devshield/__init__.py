@@ -11,7 +11,11 @@ from devshield.core.models import (
 )
 from devshield.core.rule import Rule
 
+# Bumped only for a breaking change to what plugins import. See docs/plugins.md.
+PLUGIN_API_VERSION = 1
+
 __all__ = [
+    "PLUGIN_API_VERSION",
     "Category",
     "Finding",
     "Framework",

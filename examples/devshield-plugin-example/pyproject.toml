@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "devshield-plugin-example"
+version = "0.1.0"
+description = "Example DevShield plugin: flags unresolved security TODOs."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["devshield-cli>=0.1.0.dev0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2"]
+
+# This is how DevShield finds your rules. The value is a list of rule classes, a single rule
+# class, or a function that returns either.
+[project.entry-points."devshield.rules"]
+example = "devshield_plugin_example:RULES"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/devshield_plugin_example"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -4,6 +4,7 @@ import importlib
 import inspect
 import pkgutil
 from collections.abc import Iterable
+from dataclasses import dataclass
 from importlib.metadata import entry_points
 from typing import Any
 
@@ -18,10 +19,21 @@ class RegistryError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class PluginInfo:
+    name: str
+    distribution: str | None
+    version: str | None
+    rules: tuple[str, ...] = ()
+    error: str | None = None
+
+
 class RuleRegistry:
     def __init__(self) -> None:
         self._rules: dict[str, type[Rule]] = {}
         self.load_errors: list[str] = []
+        self.plugins: list[PluginInfo] = []
+        self._plugin_rules: dict[str, str] = {}
 
     def __len__(self) -> int:
         return len(self._rules)
@@ -31,6 +43,10 @@ class RuleRegistry:
 
     def get(self, rule_id: str) -> type[Rule] | None:
         return self._rules.get(rule_id.upper())
+
+    def plugin_of(self, rule_id: str) -> str | None:
+        """The entry-point name of the plugin that provides the rule, or None for built-ins."""
+        return self._plugin_rules.get(rule_id)
 
     def all(self) -> list[type[Rule]]:
         return [self._rules[rule_id] for rule_id in sorted(self._rules)]
@@ -58,11 +74,24 @@ class RuleRegistry:
 
     def load_plugins(self) -> None:
         for entry in entry_points(group=PLUGIN_GROUP):
+            dist = entry.dist
+            name, version = (dist.name, dist.version) if dist else (None, None)
+            added: list[str] = []
             try:
                 for rule in _rule_classes(entry.load()):
-                    self.register(rule)
+                    try:
+                        self.register(rule)
+                    except (RegistryError, TypeError) as exc:
+                        self.load_errors.append(f"plugin {entry.name!r}: rule skipped: {exc}")
+                    else:
+                        added.append(rule.id)
+                        self._plugin_rules[rule.id] = entry.name
             except Exception as exc:
-                self.load_errors.append(f"plugin {entry.name!r} failed to load: {exc}")
+                message = f"plugin {entry.name!r} failed to load: {exc}"
+                self.load_errors.append(message)
+                self.plugins.append(PluginInfo(entry.name, name, version, tuple(added), str(exc)))
+            else:
+                self.plugins.append(PluginInfo(entry.name, name, version, tuple(added)))
 
 
 def _rule_classes(obj: Any) -> Iterable[type[Rule]]:
