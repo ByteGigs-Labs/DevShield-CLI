@@ -24,10 +24,11 @@ CI runs the same commands on Linux, macOS and Windows.
 
 ## Adding a rule
 
-1. Subclass `devshield.Rule` and give it an `id` that follows the scheme in the docs
-   (`SH` security, `PERF` performance, `DX` developer experience, `DOC` documentation).
-2. Add a fixture project where the rule fires and one where it stays quiet.
-3. Add a docs page: what it checks, why it matters, how to fix it.
+1. Subclass `devshield.Rule` in a module under `devshield/rules/`. Set `id` (see
+   [docs/rule-ids.md](docs/rule-ids.md)), `title`, `severity`, `category`, `description`
+   (why it matters) and `remediation` (how to fix). Use `PatternRule` for simple regex rules.
+2. Add a firing case and a quiet case for it in `tests/rules/cases_*.py`.
+3. Regenerate the docs page with `python scripts/gen_rule_docs.py`.
 
 ## Pull requests
 

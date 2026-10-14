@@ -19,6 +19,7 @@ class ScanOptions:
     only: tuple[str, ...] = ()
     exclude_rules: tuple[str, ...] = ()
     min_severity: Severity | None = None
+    history: bool = False
 
 
 def _matches(rule_id: str, selectors: tuple[str, ...]) -> bool:
@@ -56,7 +57,7 @@ def run_scan(
     config = config or load_config(root)
     registry = registry or default_registry()
     options = options or ScanOptions()
-    ctx = ProjectContext(root, exclude=config.exclude)
+    ctx = ProjectContext(root, exclude=config.exclude, scan_history=options.history)
 
     rules_run: list[str] = []
     timings: dict[str, float] = {}

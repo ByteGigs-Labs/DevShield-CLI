@@ -17,3 +17,5 @@ A prefix names the category and the number range names the subcategory.
 
 Plugin rules must use their own prefix (for example `ACME001`).
 Built-in prefixes are reserved.
+
+The full list of rules is in [rules/README.md](rules/README.md).

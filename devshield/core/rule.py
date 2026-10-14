@@ -30,6 +30,7 @@ class Rule(ABC):
     severity: ClassVar[Severity]
     category: ClassVar[Category]
     applies_to: ClassVar[frozenset[Framework]] = frozenset()
+    description: ClassVar[str] = ""
     remediation: ClassVar[str | None] = None
     fixable: ClassVar[bool] = False
 

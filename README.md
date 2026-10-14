@@ -185,48 +185,60 @@ to automatically resolve supported issues.
 Scan a project
 
 ```bash
-devshield scan
+devshield scan [PATH]
 ```
 
-Generate an HTML report
+Useful options
 
 ```bash
-devshield report
+devshield scan --json                  # machine-readable output
+devshield scan -o report.json          # write JSON to a file
+devshield scan --only SH,PERF101       # run selected rules or prefixes
+devshield scan --exclude-rule DX,DOC   # skip rules or prefixes
+devshield scan --min-severity medium   # hide lower severities
+devshield scan --fail-on high          # exit 1 at this severity or above
+devshield scan --history               # also scan recent git history for secrets
+devshield scan -v                      # show fixes and passed rules
 ```
 
-Generate JSON output
-
-```bash
-devshield scan --json
-```
-
-Automatically fix supported issues
-
-```bash
-devshield fix
-```
-
-Scan a Docker image
-
-```bash
-devshield docker scan
-```
-
-Scan dependencies
-
-```bash
-devshield deps
-```
-
-Validate environment configuration
+Validate `.env` files (debug flags, exposure, weak secrets, missing keys)
 
 ```bash
 devshield env
 ```
 
-Update rules
+Browse rules
 
 ```bash
+devshield rules list
+devshield rules show SH001
+```
+
+Create a starter config
+
+```bash
+devshield init
+```
+
+Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | No findings at or above `--fail-on` (default `high`) |
+| 1 | Findings at or above `--fail-on` |
+| 2 | Usage or configuration error |
+| 3 | Internal error |
+
+Every rule has a page under [docs/rules](docs/rules/README.md). Silence a rule in
+`devshield.yml`, or on one line with a comment: `devshield-ignore: SH201`.
+
+Planned
+
+```bash
+devshield report     # HTML, Markdown and SARIF reports
+devshield fix        # apply safe fixes
+devshield deps       # known-vulnerability scan of dependencies
+devshield docker scan
 devshield update
 ```
 

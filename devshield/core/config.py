@@ -12,6 +12,20 @@ from devshield.core.rule import RULE_ID_PATTERN
 CONFIG_NAMES = ("devshield.yml", "devshield.yaml", ".devshield.yml", ".devshield.yaml")
 
 
+STARTER_CONFIG = """\
+# Rule IDs (SH001) or path globs (docs/**) to skip.
+ignore: []
+severity:
+  minimum: info
+  fail_on: high
+exclude: []
+report:
+  format: terminal
+auto_fix:
+  enabled: false
+"""
+
+
 class ConfigError(Exception):
     pass
 

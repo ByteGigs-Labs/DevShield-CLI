@@ -45,6 +45,8 @@ class RuleRegistry:
 
     def load_builtin(self) -> None:
         for info in pkgutil.iter_modules(builtin_rules.__path__, f"{builtin_rules.__name__}."):
+            if info.name.rsplit(".", 1)[-1].startswith("_"):
+                continue
             module = importlib.import_module(info.name)
             for _, cls in inspect.getmembers(module, inspect.isclass):
                 if (

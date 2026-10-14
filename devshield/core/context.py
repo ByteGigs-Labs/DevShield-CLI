@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Iterable, Sequence
 from functools import cached_property
 from pathlib import Path
@@ -10,8 +11,16 @@ from typing import Any
 import pathspec
 import yaml
 
+from devshield.core.git import tracked_files
 from devshield.core.models import DetectedFramework, Framework
-from devshield.core.parsers import EnvEntry, parse_dotenv
+from devshield.core.parsers import (
+    EnvEntry,
+    Instruction,
+    json_line_map,
+    parse_dockerfile,
+    parse_dotenv,
+    yaml_line_map,
+)
 
 DEFAULT_EXCLUDES = frozenset(
     {
@@ -33,6 +42,9 @@ MAX_FILE_BYTES = 1_000_000
 DOCKERFILE_PATTERNS = ("Dockerfile", "Dockerfile.*", "*.Dockerfile")
 COMPOSE_PATTERNS = ("docker-compose*.yml", "docker-compose*.yaml", "compose.yml", "compose.yaml")
 WORKFLOW_PATTERNS = (".github/workflows/*.yml", ".github/workflows/*.yaml")
+SOURCE_PATTERNS = ("*.js", "*.jsx", "*.ts", "*.tsx", "*.mjs", "*.cjs")
+EXAMPLE_SUFFIXES = (".example", ".sample", ".template", ".dist", ".defaults")
+TEST_DIRS = frozenset({"test", "tests", "__tests__", "spec", "e2e", "cypress", "fixtures"})
 
 
 def build_spec(patterns: Iterable[str]) -> pathspec.PathSpec[Any]:
@@ -43,17 +55,31 @@ def _is_env_file(name: str) -> bool:
     return name == ".env" or name.startswith(".env.")
 
 
+def _is_example(name: str) -> bool:
+    return name.endswith(EXAMPLE_SUFFIXES)
+
+
+def is_test_path(rel: str) -> bool:
+    *directories, name = rel.split("/")
+    return bool(TEST_DIRS.intersection(directories)) or bool(
+        re.search(r"\.(?:test|spec)\.|_test\.|^test_", name)
+    )
+
+
 class ProjectContext:
     def __init__(
         self,
         root: Path | str,
         exclude: Sequence[str] = (),
         respect_gitignore: bool = True,
+        scan_history: bool = False,
     ) -> None:
         self.root = Path(root).resolve()
+        self.scan_history = scan_history
         self._exclude = build_spec(exclude)
         self._respect_gitignore = respect_gitignore
         self._text: dict[str, str | None] = {}
+        self._line_maps: dict[str, dict[tuple[str | int, ...], int]] = {}
 
     @cached_property
     def _gitignore(self) -> pathspec.PathSpec[Any]:
@@ -126,8 +152,54 @@ class ProjectContext:
         except error:
             return None
 
+    def line_of(self, rel: str, *path: str | int) -> int | None:
+        if rel not in self._line_maps:
+            build = json_line_map if rel.endswith(".json") else yaml_line_map
+            self._line_maps[rel] = build(self.read_text(rel) or "")
+        return self._line_maps[rel].get(path)
+
     def dotenv(self, rel: str) -> list[EnvEntry]:
         return parse_dotenv(self.read_text(rel) or "")
+
+    @cached_property
+    def env_files(self) -> list[str]:
+        return self._env_files(example=False)
+
+    @cached_property
+    def env_examples(self) -> list[str]:
+        return self._env_files(example=True)
+
+    def _env_files(self, *, example: bool) -> list[str]:
+        return [
+            f
+            for f in self.files
+            if _is_env_file(f.rsplit("/", 1)[-1]) and _is_example(f) == example
+        ]
+
+    @cached_property
+    def source_files(self) -> list[str]:
+        return [f for f in self.match(*SOURCE_PATTERNS) if not is_test_path(f)]
+
+    @cached_property
+    def tracked(self) -> frozenset[str] | None:
+        return tracked_files(self.root)
+
+    def size(self, rel: str) -> int:
+        path = self._resolve(rel)
+        return path.stat().st_size if path is not None and path.is_file() else 0
+
+    def disk_files(self, *directories: str) -> list[str]:
+        found: list[str] = []
+        for directory in directories:
+            base = self._resolve(directory)
+            if base is not None and base.is_dir():
+                found += sorted(
+                    p.relative_to(self.root).as_posix() for p in base.rglob("*") if p.is_file()
+                )
+        return found
+
+    def dockerfile(self, rel: str) -> list[Instruction]:
+        return parse_dockerfile(self.read_text(rel) or "")
 
     @property
     def dockerfiles(self) -> list[str]:
