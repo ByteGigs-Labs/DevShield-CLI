@@ -164,12 +164,46 @@ def _extra_patterns(directory: str) -> tuple[SecretPattern, ...]:
         return ()
 
 
+@cache
+def _combined(directory: str) -> tuple[SecretPattern, ...]:
+    return PATTERNS + _extra_patterns(directory)
+
+
 def active_patterns() -> tuple[SecretPattern, ...]:
-    return PATTERNS + _extra_patterns(str(default_cache_dir()))
+    return _combined(str(default_cache_dir()))
+
+
+# Every built-in pattern needs one of these fragments, so most lines skip all of them.
+CANDIDATE = re.compile(
+    r"AKIA|ASIA|gh[pousr]_|github_pat_|xox[abprs]-|[sr]k_live_|AIza|-----BEGIN|eyJ|://"
+    r"|secret|password|passwd|api[_-]?key|access[_-]?token|auth[_-]?token|private[_-]?key",
+    re.IGNORECASE,
+)
+
+
+# Plain substrings that cover CANDIDATE, so a whole file can be ruled out without a regex.
+CANDIDATE_HINTS = (
+    "akia", "asia", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_", "xoxa-", "xoxb-",
+    "xoxp-", "xoxr-", "xoxs-", "sk_live_", "rk_live_", "aiza", "-----begin", "eyj", "://",
+    "secret", "password", "passwd", "api_key", "api-key", "apikey", "access_token",
+    "access-token", "accesstoken", "auth_token", "auth-token", "authtoken", "private_key",
+    "private-key", "privatekey",
+)  # fmt: skip
+
+
+def may_contain_secret(text: str) -> bool:
+    """A cheap test on a whole file: False means ``find_secrets`` finds nothing on any line."""
+    if _extra_patterns(str(default_cache_dir())):
+        return True
+    folded = text.casefold()
+    return any(hint in folded for hint in CANDIDATE_HINTS)
 
 
 def find_secrets(line: str) -> Iterator[SecretMatch]:
-    for pattern in active_patterns():
+    patterns = (
+        active_patterns() if CANDIDATE.search(line) else _extra_patterns(str(default_cache_dir()))
+    )
+    for pattern in patterns:
         for match in pattern.regex.finditer(line):
             value = match.group(pattern.group)
             if (

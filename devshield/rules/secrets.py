@@ -8,7 +8,7 @@ from devshield.core.git import run_git
 from devshield.core.models import Category, Finding, Framework, Severity
 from devshield.core.rule import Rule
 from devshield.core.search import MAX_LINE_LENGTH
-from devshield.core.secrets import find_secrets, mask
+from devshield.core.secrets import find_secrets, mask, may_contain_secret
 from devshield.rules._bases import is_deployed_env
 
 SKIPPED_NAMES = frozenset({"package-lock.json", "composer.lock", "yarn.lock", "pnpm-lock.yaml"})
@@ -67,6 +67,8 @@ class HardcodedSecrets(Rule):
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in filter(lambda f: _scannable(ctx, f), ctx.files):
+            if not may_contain_secret(ctx.read_text(file) or ""):
+                continue
             for number, text in enumerate(ctx.lines(file), start=1):
                 if len(text) > MAX_LINE_LENGTH:
                     continue

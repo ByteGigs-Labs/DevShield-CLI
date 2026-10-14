@@ -43,9 +43,12 @@ dev = [
     "types-jsonschema",
     "pre-commit>=3.7",
 ]
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5,<10"]
 
 [project.urls]
 Homepage = "https://github.com/ByteGigs-Labs/DevShield-CLI"
+Documentation = "https://bytegigs-labs.github.io/DevShield-CLI/"
+Changelog = "https://github.com/ByteGigs-Labs/DevShield-CLI/blob/main/CHANGELOG.md"
 Issues = "https://github.com/ByteGigs-Labs/DevShield-CLI/issues"
 
 [project.scripts]
@@ -67,9 +70,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "PTH", "RUF", "S"]
 ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S105", "S106", "S108", "S603", "S607"]
-"tests/rules/cases_*.py" = ["E501"]
-"tests/fixers/*.py" = ["E501"]
+"tests/**" = ["S105", "S106", "S108", "S603", "S607", "E501"]
 "devshield/core/git.py" = ["S603", "S607"]
 "devshield/scanners/image.py" = ["S607"]
 "devshield/rules/docker.py" = ["S104"]
@@ -82,7 +83,8 @@ files = ["devshield"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not perf'"
+markers = ["perf: performance budget checks, run with -m perf"]
 
 [tool.coverage.run]
 source = ["devshield"]

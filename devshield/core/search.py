@@ -5,6 +5,8 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from devshield.core.literals import may_match
+
 if TYPE_CHECKING:
     from devshield.core.context import ProjectContext
 
@@ -31,6 +33,28 @@ def is_comment(text: str) -> bool:
     )
 
 
+# Characters that str.splitlines() treats as line breaks but "\n" counting does not.
+ODD_BREAKS = re.compile("[\x0b\x0c\x1c-\x1e\x85\u2028\u2029]")
+ANCHORS = re.compile(r"[\^$]|\\[AZ]")
+
+
+def _candidate_lines(text: str, pattern: re.Pattern[str]) -> Iterator[int]:
+    """1-based numbers of every line that may match, found with whole-file regex passes.
+
+    The result is a superset: each line is still checked on its own by the caller.
+    """
+    position = counted_to = 0
+    number = 1
+    while position <= len(text) and (found := pattern.search(text, position)):
+        number += text.count("\n", counted_to, found.start())
+        counted_to = found.start()
+        yield number
+        end = text.find("\n", found.start())
+        if end == -1:
+            return
+        position = end + 1
+
+
 def search(
     ctx: ProjectContext,
     files: Iterable[str],
@@ -38,12 +62,26 @@ def search(
     *,
     comments: bool = False,
 ) -> Iterator[Hit]:
+    anchored = ANCHORS.search(pattern.pattern) is not None
     for file in files:
-        for number, text in enumerate(ctx.lines(file), start=1):
-            if len(text) > MAX_LINE_LENGTH or (not comments and is_comment(text)):
+        text = ctx.read_text(file) or ""
+        if not may_match(text, pattern):
+            continue
+        # Anchors mean something different on a whole file than on one line, so those patterns
+        # and files with unusual line breaks are always scanned line by line.
+        lines = ctx.lines(file)
+        if anchored or ODD_BREAKS.search(text):
+            numbers: Iterable[int] = range(1, len(lines) + 1)
+        else:
+            numbers = _candidate_lines(text, pattern)
+        for number in numbers:
+            if number > len(lines):
+                break
+            line = lines[number - 1]
+            if len(line) > MAX_LINE_LENGTH or (not comments and is_comment(line)):
                 continue
-            if match := pattern.search(text):
-                yield Hit(file, number, text, match)
+            if match := pattern.search(line):
+                yield Hit(file, number, line, match)
 
 
 def is_string_literal(argument: str) -> bool:

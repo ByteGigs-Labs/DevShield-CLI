@@ -92,12 +92,15 @@ def _docker(runner: Runner, *args: str) -> str:
 
 
 def _parse_created(value: object) -> datetime | None:
+    """Docker prints RFC 3339 with up to nine fractional digits and a UTC offset."""
     if not isinstance(value, str):
         return None
-    match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", value)
-    if not match:
+    cleaned = re.sub(r"\.\d+", "", value)
+    try:
+        parsed = datetime.fromisoformat(cleaned)
+    except ValueError:
         return None
-    return datetime.fromisoformat(match.group(1)).replace(tzinfo=UTC)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def inspect_image(
@@ -248,7 +251,7 @@ def analyze_image(info: ImageInfo, now: datetime | None = None) -> ImageReport:
                 "Combine RUN steps and use a multi-stage build.",
             )
         )
-    age = (now - info.created).days if info.created else None
+    age = max((now - info.created).days, 0) if info.created else None
     if age is not None and age > STALE_DAYS:
         findings.append(
             _finding(

@@ -79,6 +79,9 @@ class ProjectContext:
         self._exclude = build_spec(exclude)
         self._respect_gitignore = respect_gitignore
         self._text: dict[str, str | None] = {}
+        self._resolved: dict[str, Path | None] = {}
+        self._listed: frozenset[str] | None = None
+        self._ignored: dict[str, bool] = {}
         self._line_maps: dict[str, dict[tuple[str | int, ...], int]] = {}
 
     @cached_property
@@ -96,7 +99,7 @@ class ProjectContext:
             for name in sorted(names):
                 rel = _join(parent, name)
                 if not self._exclude.match_file(rel) and (
-                    _is_env_file(name) or not self._gitignore.match_file(rel)
+                    _is_env_file(name) or not self.is_gitignored(rel)
                 ):
                     found.append(rel)
         return tuple(sorted(found))
@@ -113,11 +116,28 @@ class ProjectContext:
         return [f for f in self.files if spec.match_file(f)]
 
     def is_gitignored(self, rel: str) -> bool:
-        return self._gitignore.match_file(rel)
+        if rel not in self._ignored:
+            self._ignored[rel] = self._gitignore.match_file(rel)
+        return self._ignored[rel]
 
     def _resolve(self, rel: str) -> Path | None:
-        path = (self.root / rel).resolve()
-        return path if path.is_relative_to(self.root) else None
+        if rel not in self._resolved:
+            path = self.root / rel
+            # os.walk never enters symlinked directories, so a listed file can only escape the
+            # project as a symlink itself. That makes the costly resolve() unnecessary for it.
+            if not (self._is_listed(rel) and not path.is_symlink()):
+                path = path.resolve()
+                path = path if path.is_relative_to(self.root) else None  # type: ignore[assignment]
+            self._resolved[rel] = path
+        return self._resolved[rel]
+
+    def _is_listed(self, rel: str) -> bool:
+        files = self.__dict__.get("files")
+        if files is None:
+            return False
+        if self._listed is None:
+            self._listed = frozenset(files)
+        return rel in self._listed
 
     def exists(self, rel: str) -> bool:
         path = self._resolve(rel)

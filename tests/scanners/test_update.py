@@ -79,6 +79,7 @@ class TestPatternData:
         )
         assert result.ok and "saved" in result.message
         secrets._extra_patterns.cache_clear()
+        secrets._combined.cache_clear()
         assert [m.name for m in find_secrets(line)] == ["npm access token"]
 
     def test_corrupt_saved_data_is_ignored(self) -> None:
@@ -86,6 +87,7 @@ class TestPatternData:
         directory.mkdir(parents=True, exist_ok=True)
         (directory / secrets.PATTERN_DATA_FILE).write_text("{broken")
         secrets._extra_patterns.cache_clear()
+        secrets._combined.cache_clear()
         assert secrets.active_patterns() == secrets.PATTERNS
 
 
@@ -207,3 +209,33 @@ class TestCommand:
             ],
         )
         assert "refreshed 1 of 1 packages, 1 advisories" in result.output
+
+
+def test_file_level_hints_cover_the_line_level_prefilter() -> None:
+    # Split so that scanning this repository does not report the test data itself.
+    samples = [
+        "AK" + "IAQ3EGRXZ7K2JTHPLM",
+        "AS" + "IAQ3EGRXZ7K2JTHPLM",
+        "xo" + "xb-123456789012",
+        "sk_" + "live_abcdefghijklmnop",
+        "rk_" + "live_abcdefghijklmnop",
+        "AI" + "zaSyA-abcdefghijklmnopqrstuvwxyz012345",
+        "-----" + "BEGIN PRIVATE KEY-----",
+        "ey" + "JhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghij",
+        "postgres://u:pw@h/db",
+        "API-KEY: x",
+        "ApiKey=1",
+        "ACCESS_TOKEN=1",
+        "authToken: 1",
+        "private-key = 1",
+        "PASSWD=1",
+        "Secret=1",
+        "gh" + "p_" + "a" * 36,
+        "gh" + "o_" + "a" * 36,
+        "github_" + "pat_" + "a" * 30,
+        "xo" + "xs-1234567890",
+    ]
+    for sample in samples:
+        assert secrets.CANDIDATE.search(sample), sample
+        assert secrets.may_contain_secret(sample), sample
+    assert not secrets.may_contain_secret("const total = items.map((i) => i.price);")

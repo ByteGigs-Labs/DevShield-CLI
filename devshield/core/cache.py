@@ -6,6 +6,7 @@ import os
 import tempfile
 import time
 from collections.abc import Callable
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -13,12 +14,15 @@ CACHE_ENV = "DEVSHIELD_CACHE_DIR"
 DEFAULT_TTL_SECONDS = 24 * 3600
 
 
-def default_cache_dir() -> Path:
-    explicit = os.environ.get(CACHE_ENV)
+@cache
+def _resolve(explicit: str | None, xdg: str | None) -> Path:
     if explicit:
         return Path(explicit)
-    base = os.environ.get("XDG_CACHE_HOME")
-    return (Path(base) if base else Path.home() / ".cache") / "devshield"
+    return (Path(xdg) if xdg else Path.home() / ".cache") / "devshield"
+
+
+def default_cache_dir() -> Path:
+    return _resolve(os.environ.get(CACHE_ENV), os.environ.get("XDG_CACHE_HOME"))
 
 
 class DiskCache:

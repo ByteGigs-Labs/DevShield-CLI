@@ -185,3 +185,24 @@ class TestCommand:
         result = CliRunner().invoke(app, ["docker", "scan", "app:1"])
         assert result.exit_code == 2 and "Docker was not found" in result.output
         assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "created",
+    [
+        "2026-10-14T15:15:40.72712669+03:00",
+        "2026-10-14T12:15:40Z",
+        "2026-10-14T12:15:40.123456789Z",
+    ],
+)
+def test_created_timestamps_keep_their_offset(created: str) -> None:
+    parsed = image_module._parse_created(created)
+    assert parsed is not None
+    assert parsed.astimezone(UTC).hour == 12
+    assert image_module._parse_created("not a date") is None
+    assert image_module._parse_created(None) is None
+
+
+def test_age_is_never_negative() -> None:
+    future = info(created=datetime(2026, 10, 15, tzinfo=UTC))
+    assert analyze_image(future, NOW).age_days == 0
