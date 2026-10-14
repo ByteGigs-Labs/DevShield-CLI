@@ -11,6 +11,7 @@ from rich.table import Table
 
 from devshield import __version__
 from devshield.core.baseline import BaselineError, load_baseline, render_baseline
+from devshield.core.cache import DiskCache
 from devshield.core.config import (
     CONFIG_NAMES,
     STARTER_CONFIG,
@@ -18,12 +19,20 @@ from devshield.core.config import (
     ConfigError,
     load_config,
 )
+from devshield.core.context import ProjectContext
 from devshield.core.models import ScanResult, Severity
 from devshield.core.registry import RuleRegistry, default_registry
 from devshield.core.runner import ScanOptions, run_scan
 from devshield.fixers import apply_plan, git_state, plan_fixes, render_diff
+from devshield.reports.deps import render_deps_json, render_deps_terminal
 from devshield.reports.formats import FORMATS
+from devshield.reports.image import render_image_json, render_image_terminal
 from devshield.reports.terminal import render_terminal
+from devshield.scanners.deps import scan_dependencies
+from devshield.scanners.image import DockerError, scan_image
+from devshield.scanners.lockfiles import read_lockfiles
+from devshield.scanners.osv import OsvClient
+from devshield.scanners.update import PATTERNS_URL, check_version, refresh_osv, refresh_patterns
 
 EXIT_FINDINGS = 1
 EXIT_USAGE = 2
@@ -38,6 +47,8 @@ app = typer.Typer(
 )
 rules_app = typer.Typer(help="Browse the built-in rules.", no_args_is_help=True)
 app.add_typer(rules_app, name="rules")
+docker_app = typer.Typer(help="Docker image commands.", no_args_is_help=True)
+app.add_typer(docker_app, name="docker")
 
 PathArg = Annotated[Path, typer.Argument(help="Project directory.")]
 ConfigOpt = Annotated[Path | None, typer.Option("--config", help="Path to devshield.yml.")]
@@ -348,6 +359,95 @@ def fix(
 
 
 @app.command()
+def deps(
+    path: PathArg = Path(),
+    config: ConfigOpt = None,
+    json_output: JsonOpt = False,
+    offline: Annotated[
+        bool, typer.Option("--offline", help="Use only the local cache, never the network.")
+    ] = False,
+    refresh: Annotated[
+        bool, typer.Option("--refresh", help="Ignore cached results and query OSV.dev again.")
+    ] = False,
+    cache_dir: Annotated[
+        Path | None, typer.Option("--cache-dir", help="Where to keep cached advisories.")
+    ] = None,
+    prod_only: Annotated[
+        bool, typer.Option("--prod-only", help="Skip development dependencies.")
+    ] = False,
+    min_severity: MinSeverityOpt = None,
+    fail_on: FailOnOpt = None,
+    no_color: NoColorOpt = False,
+    quiet: QuietOpt = False,
+) -> None:
+    """Check lockfile dependencies against the OSV.dev vulnerability database."""
+    if not path.is_dir():
+        raise _fail(f"{path} is not a directory", EXIT_USAGE)
+    try:
+        loaded = load_config(path.resolve(), config)
+    except ConfigError as exc:
+        raise _fail(str(exc), EXIT_USAGE) from exc
+    cache = DiskCache(cache_dir, ttl=loaded.deps.cache_ttl_hours * 3600)
+    client = OsvClient(cache, offline=offline, refresh=refresh)
+    try:
+        result = scan_dependencies(path.resolve(), client, loaded, prod_only, min_severity)
+    except Exception as exc:
+        raise _fail(f"Internal error: {type(exc).__name__}: {exc}", EXIT_INTERNAL) from exc
+    if json_output:
+        typer.echo(render_deps_json(result), nl=False)
+    elif not quiet:
+        render_deps_terminal(result, Console(no_color=no_color))
+    if result.unchecked and not offline:
+        raise typer.Exit(EXIT_INTERNAL)
+    threshold = fail_on or loaded.severity.fail_on
+    if any(v.vulnerability.severity >= threshold for v in result.vulnerabilities):
+        raise typer.Exit(EXIT_FINDINGS)
+
+
+@app.command()
+def update(
+    path: Annotated[
+        Path | None, typer.Argument(help="Also look up this project's lockfile packages.")
+    ] = None,
+    cache_dir: Annotated[
+        Path | None, typer.Option("--cache-dir", help="Where cached data is kept.")
+    ] = None,
+    patterns_url: Annotated[
+        str, typer.Option("--patterns-url", help="HTTPS address of the secret-pattern data.")
+    ] = PATTERNS_URL,
+    osv: Annotated[bool, typer.Option("--osv/--no-osv", help="Refresh the OSV cache.")] = True,
+    patterns: Annotated[
+        bool, typer.Option("--patterns/--no-patterns", help="Refresh secret-pattern data.")
+    ] = True,
+    check: Annotated[
+        bool,
+        typer.Option("--check-version/--no-check-version", help="Check PyPI for a new release."),
+    ] = True,
+) -> None:
+    """Refresh vulnerability and secret-pattern data and check for a newer DevShield.
+
+    Only data is downloaded. DevShield never fetches or runs rule code.
+    """
+    cache = DiskCache(cache_dir)
+    steps = []
+    if osv:
+        extra = None
+        if path is not None:
+            if not path.is_dir():
+                raise _fail(f"{path} is not a directory", EXIT_USAGE)
+            extra = read_lockfiles(ProjectContext(path.resolve())).packages
+        steps.append(refresh_osv(cache, extra=extra))
+    if patterns:
+        steps.append(refresh_patterns(cache, patterns_url))
+    if check:
+        steps.append(check_version())
+    for step in steps:
+        typer.echo(f"{'✔' if step.ok else '✖'} {step.name}: {step.message}")
+    if not all(step.ok for step in steps):
+        raise typer.Exit(EXIT_INTERNAL)
+
+
+@app.command()
 def init(
     path: PathArg = Path(),
     force: Annotated[bool, typer.Option("--force", help="Overwrite an existing config.")] = False,
@@ -358,6 +458,28 @@ def init(
         raise _fail(f"{target} already exists (use --force to overwrite)", EXIT_USAGE)
     target.write_text(STARTER_CONFIG, encoding="utf-8")
     typer.echo(f"Created {target}")
+
+
+@docker_app.command("scan")
+def docker_scan(
+    image: Annotated[str, typer.Argument(help="A local image, for example node:latest.")],
+    json_output: JsonOpt = False,
+    fail_on: FailOnOpt = None,
+    no_color: NoColorOpt = False,
+    quiet: QuietOpt = False,
+) -> None:
+    """Inspect a local Docker image: user, ports, secrets in ENV, size, layers and age."""
+    try:
+        report = scan_image(image)
+    except DockerError as exc:
+        raise _fail(str(exc), EXIT_USAGE) from exc
+    if json_output:
+        typer.echo(render_image_json(report), nl=False)
+    elif not quiet:
+        render_image_terminal(report, Console(no_color=no_color))
+    threshold = fail_on or Severity.HIGH
+    if any(finding.severity >= threshold for finding in report.findings):
+        raise typer.Exit(EXIT_FINDINGS)
 
 
 @rules_app.command("list")

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import json
 import math
 import re
+import time
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
+from typing import Any
 
+from devshield.core.cache import default_cache_dir
 from devshield.core.models import Severity
 
 PLACEHOLDER = re.compile(
@@ -93,8 +99,77 @@ def entropy(value: str) -> float:
     return -sum(n / len(value) * math.log2(n / len(value)) for n in counts.values())
 
 
+PATTERN_DATA_FILE = "secret-patterns.json"
+MAX_DATA_PATTERNS = 200
+MAX_REGEX_LENGTH = 300
+PROBE_SECONDS = 0.1
+# Constructs that make a regex prone to catastrophic backtracking or hard to review.
+RISKY_REGEX = re.compile(
+    r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*{]|\\[1-9]|\(\?P=|\(\?\(|\(\?[<>=!]"
+)
+PROBES = ("a" * 4000, "1" * 4000, "aA1_-" * 800, " " * 4000)
+
+
+class PatternDataError(ValueError):
+    pass
+
+
+def _data_pattern(entry: Any) -> SecretPattern:
+    if not isinstance(entry, dict):
+        raise PatternDataError("each pattern must be an object")
+    name, regex = entry.get("name"), entry.get("regex")
+    if not isinstance(name, str) or not 0 < len(name) <= 60 or not name.isprintable():
+        raise PatternDataError("pattern name must be 1-60 printable characters")
+    if not isinstance(regex, str) or not 0 < len(regex) <= MAX_REGEX_LENGTH:
+        raise PatternDataError(f"{name}: regex must be 1-{MAX_REGEX_LENGTH} characters")
+    if RISKY_REGEX.search(regex):
+        raise PatternDataError(f"{name}: regex uses a construct that is not allowed")
+    try:
+        severity = Severity(entry.get("severity", "high"))
+        compiled = re.compile(regex)
+    except (ValueError, re.error) as exc:
+        raise PatternDataError(f"{name}: {exc}") from exc
+    group = entry.get("group", 0)
+    entropy_floor = entry.get("min_entropy", 0.0)
+    if not isinstance(group, int) or isinstance(group, bool) or not 0 <= group <= compiled.groups:
+        raise PatternDataError(f"{name}: invalid capture group")
+    if not isinstance(entropy_floor, int | float) or isinstance(entropy_floor, bool):
+        raise PatternDataError(f"{name}: invalid min_entropy")
+    if compiled.search(""):
+        raise PatternDataError(f"{name}: regex matches empty text")
+    for probe in PROBES:
+        started = time.perf_counter()
+        compiled.search(probe)
+        if time.perf_counter() - started > PROBE_SECONDS:
+            raise PatternDataError(f"{name}: regex is too slow")
+    return SecretPattern(name, compiled, severity, group, float(entropy_floor), False)
+
+
+def parse_pattern_data(document: Any) -> list[SecretPattern]:
+    """Validate downloaded pattern data. It is data only: nothing in it is ever executed."""
+    if not isinstance(document, dict) or document.get("version") != 1:
+        raise PatternDataError("unsupported pattern data version")
+    entries = document.get("patterns")
+    if not isinstance(entries, list) or len(entries) > MAX_DATA_PATTERNS:
+        raise PatternDataError(f"patterns must be a list of at most {MAX_DATA_PATTERNS}")
+    return [_data_pattern(entry) for entry in entries]
+
+
+@cache
+def _extra_patterns(directory: str) -> tuple[SecretPattern, ...]:
+    path = Path(directory) / PATTERN_DATA_FILE
+    try:
+        return tuple(parse_pattern_data(json.loads(path.read_text(encoding="utf-8"))))
+    except (OSError, ValueError):
+        return ()
+
+
+def active_patterns() -> tuple[SecretPattern, ...]:
+    return PATTERNS + _extra_patterns(str(default_cache_dir()))
+
+
 def find_secrets(line: str) -> Iterator[SecretMatch]:
-    for pattern in PATTERNS:
+    for pattern in active_patterns():
         for match in pattern.regex.finditer(line):
             value = match.group(pattern.group)
             if (

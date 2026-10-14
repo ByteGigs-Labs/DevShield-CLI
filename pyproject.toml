@@ -71,6 +71,7 @@ ignore = ["S101"]
 "tests/rules/cases_*.py" = ["E501"]
 "tests/fixers/*.py" = ["E501"]
 "devshield/core/git.py" = ["S603", "S607"]
+"devshield/scanners/image.py" = ["S607"]
 "devshield/rules/docker.py" = ["S104"]
 
 [tool.mypy]

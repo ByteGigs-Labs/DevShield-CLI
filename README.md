@@ -232,12 +232,57 @@ Exit codes
 Every rule has a page under [docs/rules](docs/rules/README.md). Silence a rule in
 `devshield.yml`, or on one line with a comment: `devshield-ignore: SH201`.
 
-Planned
+# Dependencies
+
+`devshield deps` reads `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` and `composer.lock`,
+and checks every package against [OSV.dev](https://osv.dev). Each advisory is listed with its
+GHSA/CVE IDs, severity and the nearest fixed version.
 
 ```bash
-devshield deps       # known-vulnerability scan of dependencies
-devshield docker scan
+devshield deps                  # exits 1 for findings at or above --fail-on (default high)
+devshield deps --json           # machine-readable output
+devshield deps --offline        # use only the on-disk cache
+devshield deps --refresh        # ignore cached results
+devshield deps --prod-only      # skip development dependencies
+```
+
+Results are cached for 24 hours in `~/.cache/devshield` (override with `--cache-dir` or
+`DEVSHIELD_CACHE_DIR`). If OSV.dev cannot be reached, stale cached results are used and the
+run exits with code 3 when some packages stay unchecked. Accept an advisory in `devshield.yml`:
+
+```yaml
+deps:
+  ignore: [GHSA-xxxx-xxxx-xxxx]
+  cache_ttl_hours: 24
+```
+
+# Docker images
+
+`devshield docker scan <image>` inspects a local image with `docker image inspect` and
+`docker history`. It never pulls images and never runs them.
+
+| Rule | Checks |
+|------|--------|
+| IMG001 | Image runs as root |
+| IMG002 | Secrets in `ENV` or the build history |
+| IMG003 | Sensitive ports exposed (SSH, databases, Docker API) |
+| IMG004 | Image larger than 1 GiB |
+| IMG005 | More than 40 layers |
+| IMG006 | Image not rebuilt for more than 180 days |
+
+Without Docker, or with a stopped daemon, the command prints a clear message and exits with
+code 2.
+
+# Updating data
+
+`devshield update` refreshes the cached OSV results for packages you scanned before (add a project
+path to include its lockfiles), downloads additional secret-pattern data, and checks PyPI for a
+newer DevShield. It downloads data only: pattern data is validated (size limits, no backreferences,
+lookarounds or nested quantifiers, a speed probe) and DevShield never fetches or runs rule code.
+
+```bash
 devshield update
+devshield update . --no-patterns --no-check-version
 ```
 
 

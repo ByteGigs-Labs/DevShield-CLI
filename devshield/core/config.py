@@ -21,6 +21,10 @@ severity:
 exclude: []
 report:
   format: terminal
+deps:
+  # Advisory IDs to accept, for example GHSA-xxxx-xxxx-xxxx.
+  ignore: []
+  cache_ttl_hours: 24
 auto_fix:
   enabled: true
   # Override single rules, for example: {DX002: false}
@@ -58,6 +62,18 @@ class AutoFixConfig(_Section):
         return {key.upper(): enabled for key, enabled in value.items()}
 
 
+class DepsConfig(_Section):
+    ignore: list[str] = []
+    cache_ttl_hours: float = 24
+
+    @field_validator("cache_ttl_hours")
+    @classmethod
+    def _positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("must be greater than 0")
+        return value
+
+
 class Config(_Section):
     ignore: list[str] = []
     baseline: str | None = None
@@ -65,6 +81,7 @@ class Config(_Section):
     severity: SeverityConfig = SeverityConfig()
     report: ReportConfig = ReportConfig()
     auto_fix: AutoFixConfig = AutoFixConfig()
+    deps: DepsConfig = DepsConfig()
 
     @property
     def ignored_rules(self) -> frozenset[str]:

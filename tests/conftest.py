@@ -14,6 +14,13 @@ MakeProject = Callable[[dict[str, str]], Path]
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+@pytest.fixture(autouse=True)
+def isolated_cache(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DEVSHIELD_CACHE_DIR", str(tmp_path_factory.mktemp("cache")))
+
+
 @pytest.fixture(scope="session")
 def fixtures(tmp_path_factory: pytest.TempPathFactory) -> Path:
     target = tmp_path_factory.mktemp("fixtures") / "projects"

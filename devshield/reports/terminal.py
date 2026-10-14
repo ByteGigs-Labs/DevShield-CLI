@@ -32,7 +32,7 @@ def _line(console: Console, *parts: tuple[str, str]) -> None:
     console.print(Text.assemble(*parts))
 
 
-def _render_finding(console: Console, finding: Finding, verbose: bool) -> None:
+def render_finding(console: Console, finding: Finding, verbose: bool) -> None:
     icon, style = SEVERITY_STYLE[finding.severity]
     _line(
         console,
@@ -71,7 +71,7 @@ def render_terminal(
         _line(console, (name, "bold underline"))
         console.print()
         for finding in findings:
-            _render_finding(console, finding, verbose)
+            render_finding(console, finding, verbose)
         if not findings:
             _line(console, ("✔ ", "green"), ("No issues found", ""))
         if verbose and titles:
@@ -88,7 +88,7 @@ def render_terminal(
         _line(console, (OTHER, "bold underline"))
         console.print()
         for finding in others:
-            _render_finding(console, finding, verbose)
+            render_finding(console, finding, verbose)
 
     for error in result.errors:
         _line(console, ("✖ ", "red"), (f"Rule {error.rule_id} failed: {error.message}", ""))
