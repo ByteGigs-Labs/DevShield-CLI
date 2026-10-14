@@ -7,7 +7,7 @@ from devshield.core.models import Finding, Framework
 from devshield.fixers.base import FixContext, Fixer
 from devshield.fixers.model import Create, Edit, Fix, Skipped
 
-JOBS_LINE = re.compile(r"^jobs:[ \t]*(?:#.*)?$", re.MULTILINE)
+JOBS_LINE = re.compile(r"^jobs:[ \t]*(?:#[^\r\n]*)?\r?$", re.MULTILINE)
 NEEDS_WRITE = re.compile(
     r"git\s+push|\bgh\s+(?:release|pr|issue|api)|create-release|action-gh-release|peter-evans|"
     r"stefanzweifel|github-script|upload-sarif|codeql|deploy|publish|release|labeler|"

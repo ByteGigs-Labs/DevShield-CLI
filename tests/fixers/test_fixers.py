@@ -37,9 +37,10 @@ def fix_and_verify(root: Path, rule: str):  # type: ignore[no-untyped-def]
     return first
 
 
-def read(root: Path, rel: str) -> str:
-    with (root / rel).open(encoding="utf-8", newline="") as handle:
-        return handle.read()
+def read(root: Path, rel: str, raw: bool = False) -> str:
+    """File text with line endings normalised (Windows writes CRLF), unless ``raw``."""
+    text = (root / rel).read_bytes().decode("utf-8")
+    return text if raw else text.replace("\r\n", "\n")
 
 
 def git(root: Path, *args: str) -> None:
@@ -74,7 +75,7 @@ class TestGitignore:
         root = make_project({".env": "A=1\n"})
         (root / ".gitignore").write_bytes(b"dist\r\n")
         fix_and_verify(root, "SH202")
-        text = read(root, ".gitignore")
+        text = read(root, ".gitignore", raw=True)
         assert text.count("\r\n") == text.count("\n") == 4
 
     def test_tracked_file_is_left_alone(self, make_project: MakeProject) -> None:
@@ -205,6 +206,17 @@ class TestWorkflowPermissions:
         fix_and_verify(root, "DX003")
         document = yaml.safe_load(read(root, WORKFLOW))
         assert document["permissions"] == {"contents": "read"} and "a" in document["jobs"]
+
+    def test_handles_windows_line_endings(self, make_project: MakeProject) -> None:
+        root = make_project({})
+        (root / WORKFLOW).parent.mkdir(parents=True)
+        (root / WORKFLOW).write_bytes(
+            b"name: x\r\non: push\r\njobs: # all\r\n  a:\r\n    runs-on: u\r\n    steps:\r\n      - run: ls\r\n"
+        )
+        fix_and_verify(root, "DX003")
+        text = read(root, WORKFLOW, raw=True)
+        assert "permissions:\r\n  contents: read\r\n\r\njobs:" in text
+        assert text.count("\n") == text.count("\r\n")
 
     @pytest.mark.parametrize(
         "step", ["run: git push origin main", "uses: softprops/action-gh-release@v1"]
