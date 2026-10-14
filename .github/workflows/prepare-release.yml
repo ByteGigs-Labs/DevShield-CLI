@@ -1,0 +1,38 @@
+name: Prepare release
+
+# Run from the Actions tab: bumps the version, rolls the changelog, tags, and starts the release.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, for example 1.0.0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Bump the version and the changelog
+        run: python3 scripts/bump_release.py "$VERSION"
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release $VERSION"
+          git tag "v$VERSION"
+          git push origin HEAD "v$VERSION"
+      # Pushes made with the built-in token do not start other workflows, so start it explicitly.
+      - name: Start the release workflow
+        run: gh workflow run release.yml --ref "v$VERSION"

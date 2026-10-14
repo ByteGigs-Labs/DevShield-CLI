@@ -25,7 +25,12 @@ jobs:
       - run: pip install -e ".[docs]"
       - run: cp CHANGELOG.md docs/changelog.md
       - run: mkdocs build --strict
+      # Tries to switch Pages on. The built-in token is not always allowed to; if this step cannot,
+      # enable Settings > Pages > Source: GitHub Actions once, by hand.
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+        continue-on-error: true
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: site

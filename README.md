@@ -88,6 +88,33 @@ Upcoming:
 
 ---
 
+# Screenshots
+
+### Scan
+
+<img src="https://raw.githubusercontent.com/ByteGigs-Labs/DevShield-CLI/main/docs/images/scan.svg" alt="devshield scan output: findings grouped by area with a risk score" width="820">
+
+### HTML report
+
+A single self-contained file with a risk gauge, search and category filters, and no external requests.
+
+<img src="https://raw.githubusercontent.com/ByteGigs-Labs/DevShield-CLI/main/docs/images/html-report.png" alt="The HTML report with a risk gauge and a filterable findings table" width="820">
+
+### Safe auto-fix
+
+<img src="https://raw.githubusercontent.com/ByteGigs-Labs/DevShield-CLI/main/docs/images/fix.svg" alt="devshield fix showing a diff of the files it would create" width="820">
+
+### Dependency vulnerabilities
+
+<img src="https://raw.githubusercontent.com/ByteGigs-Labs/DevShield-CLI/main/docs/images/deps.svg" alt="devshield deps listing known advisories for an outdated lodash" width="820">
+
+### Docker image inspection
+
+<img src="https://raw.githubusercontent.com/ByteGigs-Labs/DevShield-CLI/main/docs/images/docker-scan.svg" alt="devshield docker scan results for a local image" width="820">
+
+Regenerate them with `python scripts/gen_screenshots.py`.
+
+
 # Installation
 
 ```bash
