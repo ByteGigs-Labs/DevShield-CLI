@@ -53,7 +53,7 @@ def test_summary_counts_and_suppressed_note(make_project: MakeProject) -> None:
     )
     text = render(run_scan(root, Config(), registry))
     assert "1 findings: 1 high" in text and "1 suppressed by inline comments" in text
-    assert "85 / 100" in text and "Medium Risk" in text
+    assert "78 / 100" in text and "Medium Risk" in text
 
 
 def test_json_report_round_trips(make_project: MakeProject) -> None:

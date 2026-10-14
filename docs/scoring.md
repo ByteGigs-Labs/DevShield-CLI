@@ -1,6 +1,10 @@
 # Risk score
 
-The score starts at 100 and drops for each finding.
+Each finding costs points. The points add up, and the score decays smoothly towards 0:
+
+```text
+score = round(100 * exp(-points / 60))
+```
 
 | Severity | Points per finding |
 |---|---|
@@ -10,8 +14,19 @@ The score starts at 100 and drops for each finding.
 | low | 3 |
 | info | 0 |
 
-Each rule can remove at most 2 × its per-finding points, so one noisy rule cannot
-zero the score by itself. The score never goes below 0.
+Each rule can add at most 2 × its per-finding points, so one noisy rule cannot sink the score
+by itself. Because the score decays instead of subtracting, adding more problems always makes
+it worse, but a project with many findings does not simply hit 0.
+
+| Findings | Score |
+|---|---|
+| none | 100 |
+| 1 low | 95 |
+| 1 medium | 88 |
+| 1 high | 78 |
+| 1 critical | 66 |
+| 3 different medium rules | 67 |
+| 5 different medium rules | 51 |
 
 | Score | Band |
 |---|---|

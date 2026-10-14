@@ -210,7 +210,7 @@ class TestRunner:
             ("SH001", "a.txt:9"),
             ("SH001", "z.txt:1"),
         ]
-        assert (result.score, result.band.value) == (69, "high")
+        assert (result.score, result.band.value) == (60, "high")
         assert result.count(Severity.HIGH) == 1 and result.highest_severity() == Severity.HIGH
         assert set(result.rule_timings) == {"SH001", "SH002"}
 

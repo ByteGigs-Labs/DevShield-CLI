@@ -43,10 +43,10 @@ def test_clean_project_scores_100() -> None:
     ("severity", "score", "band"),
     [
         (Severity.INFO, 100, RiskBand.LOW),
-        (Severity.LOW, 97, RiskBand.LOW),
-        (Severity.MEDIUM, 92, RiskBand.LOW),
-        (Severity.HIGH, 85, RiskBand.MEDIUM),
-        (Severity.CRITICAL, 75, RiskBand.MEDIUM),
+        (Severity.LOW, 95, RiskBand.LOW),
+        (Severity.MEDIUM, 88, RiskBand.MEDIUM),
+        (Severity.HIGH, 78, RiskBand.MEDIUM),
+        (Severity.CRITICAL, 66, RiskBand.HIGH),
     ],
 )
 def test_single_finding_scores(severity: Severity, score: int, band: RiskBand) -> None:
@@ -55,12 +55,12 @@ def test_single_finding_scores(severity: Severity, score: int, band: RiskBand) -
 
 def test_one_rule_cannot_deduct_more_than_twice_its_weight() -> None:
     many = [finding(severity=Severity.HIGH) for _ in range(10)]
-    assert compute_score(many)[0] == 100 - 30
+    assert compute_score(many)[0] == 61
 
 
-def test_score_floors_at_zero_and_bands() -> None:
+def test_score_decays_towards_zero_and_maps_to_bands() -> None:
     findings = [finding(f"SH{i:03d}", Severity.CRITICAL) for i in range(1, 10)]
-    assert compute_score(findings) == (0, RiskBand.CRITICAL)
+    assert compute_score(findings) == (2, RiskBand.CRITICAL)
     assert compute_score([finding(f"SH{i:03d}", Severity.HIGH) for i in range(1, 4)])[1] == (
         RiskBand.HIGH
     )
