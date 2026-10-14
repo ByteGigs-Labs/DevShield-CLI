@@ -11,7 +11,10 @@ from devshield.core.search import Hit, search
 if TYPE_CHECKING:
     from devshield.core.context import ProjectContext
 
-APPLICATION_FRAMEWORKS = frozenset(Framework) - {Framework.DOCKER, Framework.GITHUB_ACTIONS}
+INFRASTRUCTURE_FRAMEWORKS = frozenset(
+    {Framework.DOCKER, Framework.GITHUB_ACTIONS, Framework.TERRAFORM, Framework.CLOUDFORMATION}
+)
+APPLICATION_FRAMEWORKS = frozenset(Framework) - INFRASTRUCTURE_FRAMEWORKS
 
 
 DEPLOYED_NAMES = ("production", "prod", "staging", "stage")
@@ -26,6 +29,14 @@ def is_deployed_env(ctx: ProjectContext, file: str, values: dict[str, str]) -> b
         or environment in DEPLOYED_ENVIRONMENTS
         or not ctx.is_gitignored(file)
     )
+
+
+DEV_FILE = re.compile(r"(?:^|[-_./])(?:dev|development|local|test|testing|debug)(?:[-_./]|$)", re.I)
+
+
+def is_dev_file(rel: str) -> bool:
+    """Files meant for local development, where debug-style settings are expected."""
+    return DEV_FILE.search(rel.rsplit("/", 1)[-1]) is not None
 
 
 def is_application(ctx: ProjectContext) -> bool:

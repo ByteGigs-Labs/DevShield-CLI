@@ -1,0 +1,10 @@
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddCors(o => o.AddPolicy("all", p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+builder.Services.Configure<CookiePolicyOptions>(o => o.Secure = CookieSecurePolicy.None);
+var app = builder.Build();
+app.UseDeveloperExceptionPage();
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseCors("all");
+app.MapControllers();
+app.Run();

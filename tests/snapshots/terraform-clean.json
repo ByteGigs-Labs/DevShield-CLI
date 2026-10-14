@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "terraform",
+      "confidence": "high",
+      "evidence": [
+        "main.tf"
+      ]
+    }
+  ],
+  "findings": [],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DX007",
+    "DX009",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH013",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH301",
+    "SH302",
+    "SH401",
+    "SH402",
+    "SH403",
+    "SH404",
+    "SH405"
+  ],
+  "suppressed": 0,
+  "baselined": 0,
+  "score": 100,
+  "band": "low"
+}

@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "terraform",
+      "confidence": "high",
+      "evidence": [
+        "main.tf"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "SH402",
+      "title": "IAM policy grants wildcard permissions",
+      "severity": "critical",
+      "category": "security",
+      "message": "Allows every action on every resource",
+      "location": {
+        "file": "main.tf",
+        "line": 12,
+        "column": null
+      },
+      "remediation": "List the specific actions and resources the workload needs (least privilege).",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH401",
+      "title": "S3 bucket is publicly accessible",
+      "severity": "high",
+      "category": "security",
+      "message": "assets uses the public-read ACL",
+      "location": {
+        "file": "main.tf",
+        "line": 7,
+        "column": null
+      },
+      "remediation": "Use a private ACL, enable all four settings of the public access block, and grant access with specific principals or CloudFront origin access control.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH403",
+      "title": "Security group open to the internet",
+      "severity": "high",
+      "category": "security",
+      "message": "Ingress from the internet to port 22",
+      "location": {
+        "file": "main.tf",
+        "line": 25,
+        "column": null
+      },
+      "remediation": "Restrict the source to your own CIDR range or a security group, and use SSM Session Manager or a VPN instead of public SSH.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH405",
+      "title": "Database reachable from the internet",
+      "severity": "high",
+      "category": "security",
+      "message": "main has publicly_accessible = true",
+      "location": {
+        "file": "main.tf",
+        "line": 36,
+        "column": null
+      },
+      "remediation": "Set publicly_accessible = false and reach the database through a private subnet, a VPN or a bastion host.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH404",
+      "title": "Storage encryption at rest not enabled",
+      "severity": "medium",
+      "category": "security",
+      "message": "main does not set storage_encrypted = true",
+      "location": {
+        "file": "main.tf",
+        "line": 33,
+        "column": null
+      },
+      "remediation": "Set storage_encrypted = true (RDS) or encrypted = true (EBS), ideally with a KMS key.",
+      "fixable": false
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DX007",
+    "DX009",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH013",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH301",
+    "SH302",
+    "SH401",
+    "SH402",
+    "SH403",
+    "SH404",
+    "SH405"
+  ],
+  "suppressed": 0,
+  "baselined": 0,
+  "score": 27,
+  "band": "critical"
+}

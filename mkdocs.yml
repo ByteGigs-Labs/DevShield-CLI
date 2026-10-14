@@ -32,6 +32,7 @@ nav:
       - Configuration: configuration.md
       - CI guides: ci.md
   - Reference:
+      - Supported frameworks: frameworks.md
       - Rules: rules/README.md
       - Rule IDs: rule-ids.md
       - Scoring: scoring.md

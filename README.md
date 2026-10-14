@@ -465,6 +465,25 @@ auto_fix:
 ```
 
 
+# Supported frameworks
+
+| Stack | Detected from | Highlights |
+|-------|---------------|------------|
+| Laravel | `artisan`, `laravel/framework` | debug mode, CORS, cookies, rate limiting |
+| Node, Express | `package.json` | CORS, headers, JWT, sessions, dynamic code |
+| React, Next.js | `package.json` | XSS sinks, secrets in the bundle, CSP, bundle size |
+| NestJS | `@nestjs/core` | helmet, ValidationPipe, CORS |
+| Django | `django`, `manage.py` | `DEBUG`, `ALLOWED_HOSTS`, `SECRET_KEY`, `SECURE_*`, CSRF, cookies |
+| FastAPI | `fastapi` | CORS, `/docs` exposure, secrets, SQL injection |
+| Flask | `flask` | `debug=True`, `SECRET_KEY`, cookies, CSRF, Flask-CORS |
+| Spring Boot | `pom.xml`, Gradle | Actuator, `application.properties` secrets, CSRF, `permitAll`, `ddl-auto` |
+| ASP.NET Core | `Microsoft.NET.Sdk.Web` | developer exception page, `appsettings.json` secrets, CORS, Swagger |
+| Terraform, CloudFormation | `*.tf`, templates | public S3, IAM `*`, open security groups, unencrypted or public databases |
+| Docker, GitHub Actions | `Dockerfile`, workflows | root user, pinned actions, token permissions |
+
+See [docs/frameworks.md](docs/frameworks.md) for the rules that apply to each stack.
+
+
 # Rule Categories
 
 | Rules | Category |
@@ -473,6 +492,7 @@ auto_fix:
 | SH100–SH199 | Authentication |
 | SH200–SH299 | Secrets |
 | SH300–SH399 | Configuration |
+| SH400–SH499 | Cloud and infrastructure as code |
 | PERF001–PERF099 | Performance |
 | PERF100–PERF199 | Docker |
 | PERF200–PERF299 | Frontend |

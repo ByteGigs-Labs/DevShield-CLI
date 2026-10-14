@@ -68,11 +68,15 @@ class WildcardCors(Rule):
         r"""origin\s*:\s*['"]\*['"]|Access-Control-Allow-Origin['"]\s*,\s*['"]\*['"]"""
     )
     bare = re.compile(r"\bcors\(\s*\)")
+    nest_bare = re.compile(r"\benableCors\(\s*\)")
+    nest_open = re.compile(r"\borigin\s*:\s*true\b")
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in ctx.source_files:
             text = ctx.read_text(file) or ""
             patterns = [self.wildcard, *([self.bare] if CORS_IMPORT.search(text) else [])]
+            if "enableCors" in text:
+                patterns += [self.nest_bare, self.nest_open]
             seen: set[int] = set()
             for pattern in patterns:
                 for hit in search(ctx, [file], pattern):
@@ -94,12 +98,14 @@ class MissingSecurityHeaders(Rule):
     title = "Security headers not configured"
     severity = Severity.MEDIUM
     category = Category.SECURITY
-    applies_to = EXPRESS
+    applies_to = EXPRESS | frozenset({Framework.NESTJS})
     description = (
         "Headers such as Content-Security-Policy and Strict-Transport-Security block whole "
         "classes of attacks (XSS, clickjacking, protocol downgrade) with no application changes."
     )
-    remediation = "Install helmet and add `app.use(helmet())` before your routes."
+    remediation = (
+        "Install helmet and add `app.use(helmet())` before your routes (in NestJS, in main.ts)."
+    )
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         if _uses_helmet(ctx) or any(search(ctx, ctx.source_files, SECURITY_HEADERS)):

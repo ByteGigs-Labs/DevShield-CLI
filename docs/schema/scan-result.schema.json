@@ -116,7 +116,15 @@
         "react",
         "nextjs",
         "docker",
-        "github_actions"
+        "github_actions",
+        "django",
+        "fastapi",
+        "flask",
+        "nestjs",
+        "spring",
+        "aspnet",
+        "terraform",
+        "cloudformation"
       ],
       "title": "Framework",
       "type": "string"

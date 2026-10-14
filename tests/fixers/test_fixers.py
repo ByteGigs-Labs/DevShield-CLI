@@ -16,7 +16,15 @@ from devshield.fixers.workspace import FixError, Workspace
 from typer.testing import CliRunner
 
 from tests.conftest import FIXTURES, MakeProject
-from tests.rules.helpers import EXPRESS, LARAVEL, NODE, REGISTRY, WORKFLOW
+from tests.rules.helpers import (
+    ASPNET,
+    EXPRESS,
+    LARAVEL,
+    NODE,
+    REGISTRY,
+    SPRING,
+    WORKFLOW,
+)
 
 
 def scan(root: Path, *rules: str):  # type: ignore[no-untyped-def]
@@ -96,6 +104,17 @@ class TestDebug:
         assert read(root, ".env.production") == (
             'APP_NAME=x\nexport APP_DEBUG="false" # temp\nAPP_ENV=production\n'
         )
+
+    @pytest.mark.parametrize(
+        ("key", "value", "expected"),
+        [("FLASK_DEBUG", "1", "FLASK_DEBUG=false"), ("DJANGO_DEBUG", "True", "DJANGO_DEBUG=false")],
+    )
+    def test_python_debug_flags(
+        self, make_project: MakeProject, key: str, value: str, expected: str
+    ) -> None:
+        root = make_project({".env.production": f"{key}={value}\n"})
+        fix_and_verify(root, "SH001")
+        assert read(root, ".env.production") == f"{expected}\n"
 
     def test_other_places_are_reported_but_not_edited(self, make_project: MakeProject) -> None:
         root = make_project(
@@ -254,6 +273,24 @@ class TestStarterWorkflow:
         fix_and_verify(root, "DX002")
         assert expected in read(root, ".github/workflows/ci.yml")
         assert yaml.safe_load(read(root, ".github/workflows/ci.yml"))["jobs"]
+        assert scan(root, "DX003", "DX004", "DX005", "DX006", "DX010", "DX011").findings == ()
+
+    @pytest.mark.parametrize(
+        ("files", "expected"),
+        [
+            ({"requirements.txt": "Django\n"}, "pip install -r requirements.txt pytest"),
+            ({"pyproject.toml": '[project]\ndependencies = ["flask"]\n'}, "pip install . pytest"),
+            ({**SPRING}, "mvn -B verify"),
+            ({"build.gradle": "id 'org.springframework.boot'"}, "./gradlew build"),
+            ({**ASPNET}, "dotnet test --no-build"),
+        ],
+    )
+    def test_other_ecosystems_get_a_matching_workflow(
+        self, make_project: MakeProject, files: dict[str, str], expected: str
+    ) -> None:
+        root = make_project(files)
+        fix_and_verify(root, "DX002")
+        assert expected in read(root, ".github/workflows/ci.yml")
         assert scan(root, "DX003", "DX004", "DX005", "DX006", "DX010", "DX011").findings == ()
 
     def test_never_overwrites_an_existing_file(self, make_project: MakeProject) -> None:

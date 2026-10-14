@@ -9,7 +9,7 @@ from devshield.fixers.base import FixContext, Fixer, appended, line_bounds
 from devshield.fixers.model import Create, Edit, Fix, Skipped
 
 DEBUG_LINE = re.compile(
-    r"^(?P<head>\s*(?:export\s+)?APP_DEBUG\s*=\s*)(?P<quote>[\"']?)"
+    r"^(?P<head>\s*(?:export\s+)?(?:APP_DEBUG|FLASK_DEBUG|DJANGO_DEBUG|DEBUG)\s*=\s*)(?P<quote>[\"']?)"
     r"(?P<value>true|1|yes|on)(?P=quote)(?P<tail>\s*(?:#.*)?)$",
     re.IGNORECASE,
 )
@@ -22,20 +22,20 @@ class DisableDebug(Fixer):
     def plan(self, fc: FixContext, findings: list[Finding]) -> Iterable[Fix | Skipped]:
         for finding in findings:
             location = finding.location
-            if location is None or location.line is None or "APP_DEBUG" not in finding.message:
-                yield self.skip("only APP_DEBUG in .env files is fixed automatically", finding)
+            if location is None or location.line is None or " is enabled" not in finding.message:
+                yield self.skip("only debug flags in .env files is fixed automatically", finding)
                 continue
             text = fc.workspace.read(location.file) or ""
             bounds = line_bounds(text, location.line)
             match = bounds and DEBUG_LINE.match(text[bounds[0] : bounds[1]])
             if not bounds or not match:
-                yield self.skip("the APP_DEBUG line has an unexpected format", finding)
+                yield self.skip("the debug line has an unexpected format", finding)
                 continue
             quote = match["quote"]
             replacement = f"{match['head']}{quote}false{quote}{match['tail']}"
             yield Fix(
                 self.rule_id,
-                f"Set APP_DEBUG=false in {location.file}",
+                f"Disable debug mode in {location.file}",
                 (Edit(location.file, bounds[0], bounds[1], replacement),),
             )
 

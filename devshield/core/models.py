@@ -68,6 +68,14 @@ class Framework(StrEnum):
     NEXTJS = "nextjs"
     DOCKER = "docker"
     GITHUB_ACTIONS = "github_actions"
+    DJANGO = "django"
+    FASTAPI = "fastapi"
+    FLASK = "flask"
+    NESTJS = "nestjs"
+    SPRING = "spring"
+    ASPNET = "aspnet"
+    TERRAFORM = "terraform"
+    CLOUDFORMATION = "cloudformation"
 
 
 class Confidence(StrEnum):

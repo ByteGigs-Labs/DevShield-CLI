@@ -3,10 +3,10 @@ from __future__ import annotations
 import pytest
 
 from tests.conftest import MakeProject
-from tests.rules import cases_infra, cases_secrets, cases_web
+from tests.rules import cases_frameworks, cases_infra, cases_secrets, cases_web
 from tests.rules.helpers import REGISTRY, Files, locations
 
-MODULES = (cases_secrets, cases_web, cases_infra)
+MODULES = (cases_secrets, cases_web, cases_infra, cases_frameworks)
 POSITIVE = [
     pytest.param(rule_id, files, expected, id=f"{rule_id}-{i}")
     for module in MODULES

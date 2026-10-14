@@ -23,6 +23,12 @@ TEST_PATTERNS = (
     "*_test.*",
     "test_*.py",
     "*Test.php",
+    "src/test/",
+    "*Test.java",
+    "*Tests.java",
+    "*Tests.cs",
+    "*Test.cs",
+    "*.Tests/",
 )
 CI_FILES = (
     ".github/workflows/*.yml",
@@ -47,7 +53,15 @@ PLACEHOLDER_VERSIONS = frozenset({"0.0.0", ""})
 LABEL_VERSION = re.compile(r"(?:org\.opencontainers\.image\.)?version\s*=\s*\"?([^\"\s]+)")
 LARGE_FILE = 5 * 1024 * 1024
 MIN_README_CHARS = 200
-IGNORED_DIRECTORIES = {Framework.NODE: "node_modules", Framework.LARAVEL: "vendor"}
+IGNORED_DIRECTORIES = {
+    Framework.NODE: "node_modules",
+    Framework.LARAVEL: "vendor",
+    Framework.DJANGO: "__pycache__",
+    Framework.FASTAPI: "__pycache__",
+    Framework.FLASK: "__pycache__",
+    Framework.SPRING: "target",
+    Framework.ASPNET: "obj",
+}
 
 
 def _doc_file(ctx: ProjectContext, *stems: str, directories: tuple[str, ...] = ("",)) -> str | None:

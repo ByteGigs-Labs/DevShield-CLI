@@ -27,7 +27,7 @@ Security
 ⚠ SH003 Security headers not configured [medium]
     No helmet or manual security headers found
     package.json:4
-    Fix: Install helmet and add `app.use(helmet())` before your routes.
+    Fix: Install helmet and add `app.use(helmet())` before your routes (in NestJS, in main.ts).
 ⚠ SH101 Insecure session cookie settings [medium]
     Session cookie sets secure to an unsafe value
     server.js:9

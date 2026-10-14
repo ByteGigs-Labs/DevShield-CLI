@@ -84,6 +84,19 @@ def search(
                 yield Hit(file, number, line, match)
 
 
+def search_text(
+    ctx: ProjectContext, files: Iterable[str], pattern: re.Pattern[str]
+) -> Iterator[Hit]:
+    """Like ``search`` but matches across lines, for code that is split over several lines."""
+    for file in files:
+        text = ctx.read_text(file) or ""
+        if not may_match(text, pattern):
+            continue
+        for match in pattern.finditer(text):
+            line = text.count("\n", 0, match.start()) + 1
+            yield Hit(file, line, text[match.start() : match.end()].split("\n", 1)[0], match)
+
+
 def is_string_literal(argument: str) -> bool:
     return STRING_LITERAL.fullmatch(argument.strip()) is not None
 
