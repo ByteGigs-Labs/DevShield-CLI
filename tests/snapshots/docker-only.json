@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "docker",
+      "confidence": "high",
+      "evidence": [
+        "Dockerfile",
+        "docker-compose.yml"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "SH012",
+      "title": "Secret baked into Dockerfile",
+      "severity": "high",
+      "category": "security",
+      "message": "ENV DB_PASSWORD sets a literal secret",
+      "location": {
+        "file": "Dockerfile",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "Pass secrets at runtime, or use BuildKit `--mount=type=secret` during the build.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH011",
+      "title": "Risky docker-compose service configuration",
+      "severity": "high",
+      "category": "security",
+      "message": "Service 'db' runs privileged",
+      "location": {
+        "file": "docker-compose.yml",
+        "line": 2,
+        "column": null
+      },
+      "remediation": "Drop privileged/host settings, bind ports to 127.0.0.1, and keep databases on an internal network.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH011",
+      "title": "Risky docker-compose service configuration",
+      "severity": "high",
+      "category": "security",
+      "message": "Service 'db' publishes database port 5432:5432 on all interfaces",
+      "location": {
+        "file": "docker-compose.yml",
+        "line": 2,
+        "column": null
+      },
+      "remediation": "Drop privileged/host settings, bind ports to 127.0.0.1, and keep databases on an internal network.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF101",
+      "title": "Base image not pinned to a version",
+      "severity": "medium",
+      "category": "docker",
+      "message": "ubuntu uses no tag (latest)",
+      "location": {
+        "file": "Dockerfile",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Pin the image to a specific version tag, or better a digest (image@sha256:...).",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF102",
+      "title": "Container runs as root",
+      "severity": "medium",
+      "category": "docker",
+      "message": "The final stage never switches away from root",
+      "location": {
+        "file": "Dockerfile",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Create an unprivileged user and switch to it with a USER instruction.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF105",
+      "title": "ADD used instead of COPY",
+      "severity": "medium",
+      "category": "docker",
+      "message": "ADD downloads a remote file",
+      "location": {
+        "file": "Dockerfile",
+        "line": 3,
+        "column": null
+      },
+      "remediation": "Use COPY, and download remote files with curl plus a checksum check.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF103",
+      "title": "No .dockerignore",
+      "severity": "low",
+      "category": "docker",
+      "message": "No .dockerignore next to this Dockerfile",
+      "location": {
+        "file": "Dockerfile",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add a .dockerignore listing .git, node_modules, .env and build output.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF108",
+      "title": "No HEALTHCHECK",
+      "severity": "low",
+      "category": "docker",
+      "message": "The final stage has no HEALTHCHECK",
+      "location": {
+        "file": "Dockerfile",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add a HEALTHCHECK instruction that calls a lightweight endpoint.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF104",
+      "title": "Build tools left in the final image",
+      "severity": "low",
+      "category": "docker",
+      "message": "Single-stage image installs or runs build tools",
+      "location": {
+        "file": "Dockerfile",
+        "line": 2,
+        "column": null
+      },
+      "remediation": "Use a multi-stage build and copy only the built artifacts into the final stage.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF106",
+      "title": "Package install leaves caches or extras",
+      "severity": "low",
+      "category": "docker",
+      "message": "Layer bloat: apt-get install without --no-install-recommends; apt lists are not removed",
+      "location": {
+        "file": "Dockerfile",
+        "line": 2,
+        "column": null
+      },
+      "remediation": "Use `apt-get install --no-install-recommends` and remove /var/lib/apt/lists in the same RUN; use `apk add --no-cache`.",
+      "fixable": false
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DX007",
+    "DX009",
+    "PERF101",
+    "PERF102",
+    "PERF103",
+    "PERF104",
+    "PERF105",
+    "PERF106",
+    "PERF107",
+    "PERF108",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH011",
+    "SH012",
+    "SH013",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH301",
+    "SH302"
+  ],
+  "suppressed": 0,
+  "score": 19,
+  "band": "critical"
+}

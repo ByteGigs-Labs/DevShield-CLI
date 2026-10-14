@@ -1,0 +1,13 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.19.0",
+    "cors": "^2.8.5",
+    "express-session": "^1.18.0",
+    "jsonwebtoken": "^9.0.0",
+    "moment": "^2.30.0",
+    "lodash": "*",
+    "eslint": "^9.0.0"
+  }
+}

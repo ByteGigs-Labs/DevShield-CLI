@@ -1,0 +1,12 @@
+{
+  "packages": [
+    {
+      "name": "laravel/framework"
+    }
+  ],
+  "packages-dev": [
+    {
+      "name": "phpunit/phpunit"
+    }
+  ]
+}

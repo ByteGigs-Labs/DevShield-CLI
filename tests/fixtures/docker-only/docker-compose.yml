@@ -1,0 +1,6 @@
+services:
+  db:
+    image: postgres:16
+    privileged: true
+    ports:
+      - "5432:5432"

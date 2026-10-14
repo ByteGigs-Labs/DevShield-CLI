@@ -1,0 +1,63 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────
+✔ Framework detected: Laravel
+✔ Docker detected
+✔ GitHub Actions detected
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Security
+
+✔ No issues found
+✔ SH001 Debug mode enabled - not found
+✔ SH009 Laravel CORS allows every origin - not found
+✔ SH010 Sensitive file in Laravel public directory - not found
+✔ SH011 Risky docker-compose service configuration - not found
+✔ SH012 Secret baked into Dockerfile - not found
+✔ SH013 Dangerous file permissions - not found
+✔ SH104 Laravel session cookie not hardened - not found
+✔ SH105 No rate limiting on Laravel auth routes - not found
+✔ SH201 Hard-coded secret - not found
+✔ SH202 .env file committed or not ignored - not found
+✔ SH203 Private key or keystore file in project - not found
+✔ SH205 Weak or empty application secret - not found
+✔ SH301 .env.example missing or incomplete - not found
+✔ SH302 Required environment variable missing - not found
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Performance
+
+✔ No issues found
+✔ PERF001 Laravel optimization caches not built on deploy - not found
+✔ PERF101 Base image not pinned to a version - not found
+✔ PERF102 Container runs as root - not found
+✔ PERF103 No .dockerignore - not found
+✔ PERF104 Build tools left in the final image - not found
+✔ PERF105 ADD used instead of COPY - not found
+✔ PERF106 Package install leaves caches or extras - not found
+✔ PERF107 Dependency install after copying the whole project - not found
+✔ PERF108 No HEALTHCHECK - not found
+✔ PERF301 Lockfile missing or out of sync - not found
+✔ PERF302 Duplicate or overlapping dependencies - not found
+✔ PERF303 Development tool in production dependencies - not found
+✔ PERF304 Unpinned dependency version - not found
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Project Health
+
+✔ No issues found
+✔ DOC001 README missing or nearly empty - not found
+✔ DOC002 No license - not found
+✔ DOC003 CONTRIBUTING or CHANGELOG missing - not found
+✔ DX001 No automated tests detected - not found
+✔ DX002 No CI workflow - not found
+✔ DX003 Workflow token permissions too broad - not found
+✔ DX004 pull_request_target checks out untrusted code - not found
+✔ DX005 Action not pinned to a commit SHA - not found
+✔ DX006 CI installs dependencies without caching - not found
+✔ DX007 Inconsistent version numbers - not found
+✔ DX008 .gitignore missing or incomplete - not found
+✔ DX009 Large file committed - not found
+✔ DX010 Secret printed in workflow logs - not found
+✔ DX011 Untrusted input interpolated into a shell step - not found
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Risk Score
+
+100 / 100
+
+Low Risk

@@ -1,0 +1,11 @@
+{
+  "name": "web",
+  "dependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "moment": "^2.30.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

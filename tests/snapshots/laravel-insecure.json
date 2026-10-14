@@ -1,0 +1,509 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "laravel",
+      "confidence": "high",
+      "evidence": [
+        "artisan",
+        "composer.json requires laravel/framework"
+      ]
+    },
+    {
+      "framework": "docker",
+      "confidence": "high",
+      "evidence": [
+        "Dockerfile"
+      ]
+    },
+    {
+      "framework": "github_actions",
+      "confidence": "high",
+      "evidence": [
+        ".github/workflows/ci.yml"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "SH001",
+      "title": "Debug mode enabled",
+      "severity": "critical",
+      "category": "security",
+      "message": "APP_DEBUG is enabled in a production environment",
+      "location": {
+        "file": ".env",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "Set APP_DEBUG=false (and NODE_ENV=production) for every deployed environment.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX004",
+      "title": "pull_request_target checks out untrusted code",
+      "severity": "critical",
+      "category": "security",
+      "message": "Checks out the pull request head",
+      "location": {
+        "file": ".github/workflows/ci.yml",
+        "line": 7,
+        "column": null
+      },
+      "remediation": "Use the pull_request trigger, or never check out or run code from the PR head.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH202",
+      "title": ".env file committed or not ignored",
+      "severity": "high",
+      "category": "secrets",
+      "message": ".env is not covered by .gitignore",
+      "location": {
+        "file": ".env",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add the file to .gitignore, then remove it from git with `git rm --cached`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH205",
+      "title": "Weak or empty application secret",
+      "severity": "high",
+      "category": "secrets",
+      "message": "APP_KEY is empty",
+      "location": {
+        "file": ".env",
+        "line": 3,
+        "column": null
+      },
+      "remediation": "Generate a random value of at least 32 characters (Laravel: `php artisan key:generate`).",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX011",
+      "title": "Untrusted input interpolated into a shell step",
+      "severity": "high",
+      "category": "security",
+      "message": "Untrusted input is used inside run:",
+      "location": {
+        "file": ".github/workflows/ci.yml",
+        "line": 11,
+        "column": null
+      },
+      "remediation": "Assign the value to an env: variable and reference it as $VAR in the script.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH001",
+      "title": "Debug mode enabled",
+      "severity": "high",
+      "category": "security",
+      "message": "config/app.php hard-codes debug to true",
+      "location": {
+        "file": "config/app.php",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "Set APP_DEBUG=false (and NODE_ENV=production) for every deployed environment.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH009",
+      "title": "Laravel CORS allows every origin",
+      "severity": "high",
+      "category": "security",
+      "message": "allowed_origins contains '*' with credentials",
+      "location": {
+        "file": "config/cors.php",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "List the allowed origins in config/cors.php instead of '*'.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH010",
+      "title": "Sensitive file in Laravel public directory",
+      "severity": "high",
+      "category": "security",
+      "message": "public/.env.backup is web accessible",
+      "location": {
+        "file": "public/.env.backup",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Move the file out of public/ and delete any copy that was already deployed.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH202",
+      "title": ".env file committed or not ignored",
+      "severity": "high",
+      "category": "secrets",
+      "message": "public/.env.backup is not covered by .gitignore",
+      "location": {
+        "file": "public/.env.backup",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add the file to .gitignore, then remove it from git with `git rm --cached`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH205",
+      "title": "Weak or empty application secret",
+      "severity": "high",
+      "category": "secrets",
+      "message": "APP_KEY is empty",
+      "location": {
+        "file": "public/.env.backup",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Generate a random value of at least 32 characters (Laravel: `php artisan key:generate`).",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC001",
+      "title": "README missing or nearly empty",
+      "severity": "medium",
+      "category": "documentation",
+      "message": "No README found",
+      "location": null,
+      "remediation": "Describe what the project does, how to install, run and test it.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX001",
+      "title": "No automated tests detected",
+      "severity": "medium",
+      "category": "developer_experience",
+      "message": "No test files or test directories found",
+      "location": null,
+      "remediation": "Add a test runner (Jest/Vitest, PHPUnit/Pest) and cover the critical paths.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX003",
+      "title": "Workflow token permissions too broad",
+      "severity": "medium",
+      "category": "developer_experience",
+      "message": "No permissions block, the token gets default access",
+      "location": {
+        "file": ".github/workflows/ci.yml",
+        "line": 3,
+        "column": null
+      },
+      "remediation": "Add `permissions: contents: read` at the top and grant more per job only.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX005",
+      "title": "Action not pinned to a commit SHA",
+      "severity": "medium",
+      "category": "security",
+      "message": "shivammathur/setup-php@v2 is not pinned to a SHA",
+      "location": {
+        "file": ".github/workflows/ci.yml",
+        "line": 10,
+        "column": null
+      },
+      "remediation": "Pin the action to a full commit SHA and keep a version comment.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF101",
+      "title": "Base image not pinned to a version",
+      "severity": "medium",
+      "category": "docker",
+      "message": "php uses the latest tag",
+      "location": {
+        "file": "Dockerfile",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Pin the image to a specific version tag, or better a digest (image@sha256:...).",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF102",
+      "title": "Container runs as root",
+      "severity": "medium",
+      "category": "docker",
+      "message": "The final stage never switches away from root",
+      "location": {
+        "file": "Dockerfile",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Create an unprivileged user and switch to it with a USER instruction.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF301",
+      "title": "Lockfile missing or out of sync",
+      "severity": "medium",
+      "category": "dependencies",
+      "message": "composer.json has no composer.lock",
+      "location": {
+        "file": "composer.json",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Commit the lockfile (npm install / composer install) and keep it in sync.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF304",
+      "title": "Unpinned dependency version",
+      "severity": "medium",
+      "category": "dependencies",
+      "message": "barryvdh/laravel-debugbar is declared as '*'",
+      "location": {
+        "file": "composer.json",
+        "line": 6,
+        "column": null
+      },
+      "remediation": "Use a bounded range (^1.2.3) or an exact version.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH104",
+      "title": "Laravel session cookie not hardened",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "Session cookie is not marked secure",
+      "location": {
+        "file": "config/session.php",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "In config/session.php set secure=true, http_only=true and same_site='lax'.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH104",
+      "title": "Laravel session cookie not hardened",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "Session cookie is readable by scripts",
+      "location": {
+        "file": "config/session.php",
+        "line": 5,
+        "column": null
+      },
+      "remediation": "In config/session.php set secure=true, http_only=true and same_site='lax'.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH105",
+      "title": "No rate limiting on Laravel auth routes",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "Authentication routes have no throttle middleware",
+      "location": {
+        "file": "routes/web.php",
+        "line": 3,
+        "column": null
+      },
+      "remediation": "Apply the throttle middleware or RateLimiter::for() to authentication routes.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC002",
+      "title": "No license",
+      "severity": "low",
+      "category": "documentation",
+      "message": "No LICENSE file found",
+      "location": null,
+      "remediation": "Add a LICENSE file (choosealicense.com can help you pick one).",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX008",
+      "title": ".gitignore missing or incomplete",
+      "severity": "low",
+      "category": "developer_experience",
+      "message": "No .gitignore in the project root",
+      "location": null,
+      "remediation": "Add a .gitignore for your stack that covers dependencies, build output and .env.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH301",
+      "title": ".env.example missing or incomplete",
+      "severity": "low",
+      "category": "configuration",
+      "message": "No .env.example documents the settings in .env",
+      "location": {
+        "file": ".env",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Create .env.example with every key from .env and placeholder values.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX006",
+      "title": "CI installs dependencies without caching",
+      "severity": "low",
+      "category": "developer_experience",
+      "message": "Dependencies are installed without a cache",
+      "location": {
+        "file": ".github/workflows/ci.yml",
+        "line": 3,
+        "column": null
+      },
+      "remediation": "Use `cache:` on setup-node/setup-python/setup-php or add actions/cache.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX005",
+      "title": "Action not pinned to a commit SHA",
+      "severity": "low",
+      "category": "security",
+      "message": "actions/checkout@v4 is not pinned to a SHA",
+      "location": {
+        "file": ".github/workflows/ci.yml",
+        "line": 7,
+        "column": null
+      },
+      "remediation": "Pin the action to a full commit SHA and keep a version comment.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF001",
+      "title": "Laravel optimization caches not built on deploy",
+      "severity": "low",
+      "category": "performance",
+      "message": "Deploy scripts never cache config, routes or views",
+      "location": {
+        "file": "Dockerfile",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Run `php artisan optimize` (or config:cache, route:cache, view:cache) during deploy.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF103",
+      "title": "No .dockerignore",
+      "severity": "low",
+      "category": "docker",
+      "message": "No .dockerignore next to this Dockerfile",
+      "location": {
+        "file": "Dockerfile",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add a .dockerignore listing .git, node_modules, .env and build output.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF108",
+      "title": "No HEALTHCHECK",
+      "severity": "low",
+      "category": "docker",
+      "message": "The final stage has no HEALTHCHECK",
+      "location": {
+        "file": "Dockerfile",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add a HEALTHCHECK instruction that calls a lightweight endpoint.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF107",
+      "title": "Dependency install after copying the whole project",
+      "severity": "low",
+      "category": "docker",
+      "message": "Dependencies are installed after COPY . .",
+      "location": {
+        "file": "Dockerfile",
+        "line": 3,
+        "column": null
+      },
+      "remediation": "COPY only the manifest and lockfile, install dependencies, then COPY the rest.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF303",
+      "title": "Development tool in production dependencies",
+      "severity": "low",
+      "category": "dependencies",
+      "message": "barryvdh/laravel-debugbar belongs in require-dev",
+      "location": {
+        "file": "composer.json",
+        "line": 6,
+        "column": null
+      },
+      "remediation": "Move it to devDependencies (npm) or require-dev (Composer).",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH104",
+      "title": "Laravel session cookie not hardened",
+      "severity": "low",
+      "category": "authentication",
+      "message": "same_site is not set to lax or strict",
+      "location": {
+        "file": "config/session.php",
+        "line": 6,
+        "column": null
+      },
+      "remediation": "In config/session.php set secure=true, http_only=true and same_site='lax'.",
+      "fixable": false
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DOC001",
+    "DOC002",
+    "DOC003",
+    "DX001",
+    "DX002",
+    "DX003",
+    "DX004",
+    "DX005",
+    "DX006",
+    "DX007",
+    "DX008",
+    "DX009",
+    "DX010",
+    "DX011",
+    "PERF001",
+    "PERF101",
+    "PERF102",
+    "PERF103",
+    "PERF104",
+    "PERF105",
+    "PERF106",
+    "PERF107",
+    "PERF108",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH009",
+    "SH010",
+    "SH011",
+    "SH012",
+    "SH013",
+    "SH104",
+    "SH105",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH301",
+    "SH302"
+  ],
+  "suppressed": 0,
+  "score": 0,
+  "band": "critical"
+}

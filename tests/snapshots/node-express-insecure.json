@@ -1,0 +1,339 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "node",
+      "confidence": "high",
+      "evidence": [
+        "package.json"
+      ]
+    },
+    {
+      "framework": "express",
+      "confidence": "high",
+      "evidence": [
+        "package.json depends on express"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "SH202",
+      "title": ".env file committed or not ignored",
+      "severity": "high",
+      "category": "secrets",
+      "message": ".env is not covered by .gitignore",
+      "location": {
+        "file": ".env",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add the file to .gitignore, then remove it from git with `git rm --cached`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH205",
+      "title": "Weak or empty application secret",
+      "severity": "high",
+      "category": "secrets",
+      "message": "JWT_SECRET is weak or too short",
+      "location": {
+        "file": ".env",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Generate a random value of at least 32 characters (Laravel: `php artisan key:generate`).",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH205",
+      "title": "Weak or empty application secret",
+      "severity": "high",
+      "category": "secrets",
+      "message": "SESSION_SECRET is weak or too short",
+      "location": {
+        "file": ".env",
+        "line": 2,
+        "column": null
+      },
+      "remediation": "Generate a random value of at least 32 characters (Laravel: `php artisan key:generate`).",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH002",
+      "title": "Permissive CORS configuration",
+      "severity": "high",
+      "category": "security",
+      "message": "CORS allows any origin with credentials",
+      "location": {
+        "file": "server.js",
+        "line": 6,
+        "column": null
+      },
+      "remediation": "List the exact origins that need access instead of '*' or a bare cors() call.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH008",
+      "title": "Dynamic code execution",
+      "severity": "high",
+      "category": "security",
+      "message": "Code or command is built dynamically",
+      "location": {
+        "file": "server.js",
+        "line": 13,
+        "column": null
+      },
+      "remediation": "Avoid eval. Use execFile/spawn with an argument array instead of building a shell string.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX001",
+      "title": "No automated tests detected",
+      "severity": "medium",
+      "category": "developer_experience",
+      "message": "No test files or test directories found",
+      "location": null,
+      "remediation": "Add a test runner (Jest/Vitest, PHPUnit/Pest) and cover the critical paths.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF301",
+      "title": "Lockfile missing or out of sync",
+      "severity": "medium",
+      "category": "dependencies",
+      "message": "package.json has no lockfile",
+      "location": {
+        "file": "package.json",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Commit the lockfile (npm install / composer install) and keep it in sync.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH003",
+      "title": "Security headers not configured",
+      "severity": "medium",
+      "category": "security",
+      "message": "No helmet or manual security headers found",
+      "location": {
+        "file": "package.json",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "Install helmet and add `app.use(helmet())` before your routes.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF304",
+      "title": "Unpinned dependency version",
+      "severity": "medium",
+      "category": "dependencies",
+      "message": "lodash is declared as '*'",
+      "location": {
+        "file": "package.json",
+        "line": 10,
+        "column": null
+      },
+      "remediation": "Use a bounded range (^1.2.3) or an exact version.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH101",
+      "title": "Insecure session cookie settings",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "Session cookie sets secure to an unsafe value",
+      "location": {
+        "file": "server.js",
+        "line": 9,
+        "column": null
+      },
+      "remediation": "Set `cookie: { secure: true, httpOnly: true, sameSite: 'lax' }`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH103",
+      "title": "No rate limiting on authentication routes",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "Authentication route has no rate limiter",
+      "location": {
+        "file": "server.js",
+        "line": 11,
+        "column": null
+      },
+      "remediation": "Add express-rate-limit (or similar) to the login, register and reset routes.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH102",
+      "title": "Unsafe JWT usage",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "jwt.verify does not pin the allowed algorithms",
+      "location": {
+        "file": "server.js",
+        "line": 12,
+        "column": null
+      },
+      "remediation": "Read the secret from the environment, pass `algorithms: ['HS256']` to verify, and set `expiresIn` when signing.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC002",
+      "title": "No license",
+      "severity": "low",
+      "category": "documentation",
+      "message": "No LICENSE file found",
+      "location": null,
+      "remediation": "Add a LICENSE file (choosealicense.com can help you pick one).",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX002",
+      "title": "No CI workflow",
+      "severity": "low",
+      "category": "developer_experience",
+      "message": "No CI configuration found",
+      "location": null,
+      "remediation": "Add a pipeline (for example GitHub Actions) that runs tests and `devshield scan`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX008",
+      "title": ".gitignore missing or incomplete",
+      "severity": "low",
+      "category": "developer_experience",
+      "message": "No .gitignore in the project root",
+      "location": null,
+      "remediation": "Add a .gitignore for your stack that covers dependencies, build output and .env.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH301",
+      "title": ".env.example missing or incomplete",
+      "severity": "low",
+      "category": "configuration",
+      "message": "No .env.example documents the settings in .env",
+      "location": {
+        "file": ".env",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Create .env.example with every key from .env and placeholder values.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC001",
+      "title": "README missing or nearly empty",
+      "severity": "low",
+      "category": "documentation",
+      "message": "The README is nearly empty",
+      "location": {
+        "file": "README.md",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Describe what the project does, how to install, run and test it.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF303",
+      "title": "Development tool in production dependencies",
+      "severity": "low",
+      "category": "dependencies",
+      "message": "eslint belongs in devDependencies",
+      "location": {
+        "file": "package.json",
+        "line": 11,
+        "column": null
+      },
+      "remediation": "Move it to devDependencies (npm) or require-dev (Composer).",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH004",
+      "title": "X-Powered-By header exposes Express",
+      "severity": "low",
+      "category": "security",
+      "message": "x-powered-by is not disabled",
+      "location": {
+        "file": "server.js",
+        "line": 5,
+        "column": null
+      },
+      "remediation": "Call `app.disable('x-powered-by')` or use helmet.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH101",
+      "title": "Insecure session cookie settings",
+      "severity": "low",
+      "category": "authentication",
+      "message": "Session cookie does not set sameSite",
+      "location": {
+        "file": "server.js",
+        "line": 7,
+        "column": null
+      },
+      "remediation": "Set `cookie: { secure: true, httpOnly: true, sameSite: 'lax' }`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC003",
+      "title": "CONTRIBUTING or CHANGELOG missing",
+      "severity": "info",
+      "category": "documentation",
+      "message": "No CONTRIBUTING file found",
+      "location": null,
+      "remediation": "Add CONTRIBUTING.md and CHANGELOG.md.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC003",
+      "title": "CONTRIBUTING or CHANGELOG missing",
+      "severity": "info",
+      "category": "documentation",
+      "message": "No CHANGELOG file found",
+      "location": null,
+      "remediation": "Add CONTRIBUTING.md and CHANGELOG.md.",
+      "fixable": false
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DOC001",
+    "DOC002",
+    "DOC003",
+    "DX001",
+    "DX002",
+    "DX007",
+    "DX008",
+    "DX009",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH002",
+    "SH003",
+    "SH004",
+    "SH008",
+    "SH013",
+    "SH101",
+    "SH102",
+    "SH103",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH301",
+    "SH302"
+  ],
+  "suppressed": 0,
+  "score": 0,
+  "band": "critical"
+}

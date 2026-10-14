@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "node",
+      "confidence": "high",
+      "evidence": [
+        "package.json"
+      ]
+    },
+    {
+      "framework": "react",
+      "confidence": "high",
+      "evidence": [
+        "package.json depends on react"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "SH202",
+      "title": ".env file committed or not ignored",
+      "severity": "high",
+      "category": "secrets",
+      "message": ".env is not covered by .gitignore",
+      "location": {
+        "file": ".env",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Add the file to .gitignore, then remove it from git with `git rm --cached`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH006",
+      "title": "Secret exposed to the browser",
+      "severity": "high",
+      "category": "secrets",
+      "message": "VITE_PAYMENTS_SECRET_TOKEN is bundled into client code",
+      "location": {
+        "file": ".env",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Keep the secret on the server and expose a backend endpoint instead.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX001",
+      "title": "No automated tests detected",
+      "severity": "medium",
+      "category": "developer_experience",
+      "message": "No test files or test directories found",
+      "location": null,
+      "remediation": "Add a test runner (Jest/Vitest, PHPUnit/Pest) and cover the critical paths.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF301",
+      "title": "Lockfile missing or out of sync",
+      "severity": "medium",
+      "category": "dependencies",
+      "message": "package.json has no lockfile",
+      "location": {
+        "file": "package.json",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Commit the lockfile (npm install / composer install) and keep it in sync.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH005",
+      "title": "dangerouslySetInnerHTML without sanitizer",
+      "severity": "medium",
+      "category": "security",
+      "message": "Raw HTML is rendered unsanitized",
+      "location": {
+        "file": "src/App.jsx",
+        "line": 4,
+        "column": null
+      },
+      "remediation": "Sanitize the HTML with DOMPurify before rendering, or render text instead.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX002",
+      "title": "No CI workflow",
+      "severity": "low",
+      "category": "developer_experience",
+      "message": "No CI configuration found",
+      "location": null,
+      "remediation": "Add a pipeline (for example GitHub Actions) that runs tests and `devshield scan`.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH301",
+      "title": ".env.example missing or incomplete",
+      "severity": "low",
+      "category": "configuration",
+      "message": "No .env.example documents the settings in .env",
+      "location": {
+        "file": ".env",
+        "line": null,
+        "column": null
+      },
+      "remediation": "Create .env.example with every key from .env and placeholder values.",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF202",
+      "title": "Large frontend bundle or heavy import",
+      "severity": "low",
+      "category": "frontend",
+      "message": "Imports all of moment",
+      "location": {
+        "file": "src/App.jsx",
+        "line": 1,
+        "column": null
+      },
+      "remediation": "Split the bundle with dynamic imports and replace heavy libraries (moment, whole lodash) with smaller ones (date-fns, lodash-es / per-method imports).",
+      "fixable": false
+    },
+    {
+      "rule_id": "PERF201",
+      "title": "Production source maps enabled",
+      "severity": "low",
+      "category": "frontend",
+      "message": "Source maps are generated for production",
+      "location": {
+        "file": "vite.config.js",
+        "line": 3,
+        "column": null
+      },
+      "remediation": "Disable source maps for production builds or upload them to an error tracker.",
+      "fixable": false
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DOC001",
+    "DOC002",
+    "DOC003",
+    "DX001",
+    "DX002",
+    "DX007",
+    "DX008",
+    "DX009",
+    "PERF201",
+    "PERF202",
+    "PERF203",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH002",
+    "SH005",
+    "SH006",
+    "SH008",
+    "SH013",
+    "SH102",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH301",
+    "SH302"
+  ],
+  "suppressed": 0,
+  "score": 34,
+  "band": "critical"
+}

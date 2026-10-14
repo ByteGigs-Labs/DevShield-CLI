@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "laravel",
+      "confidence": "high",
+      "evidence": [
+        "artisan",
+        "composer.json requires laravel/framework"
+      ]
+    },
+    {
+      "framework": "docker",
+      "confidence": "high",
+      "evidence": [
+        "Dockerfile"
+      ]
+    },
+    {
+      "framework": "github_actions",
+      "confidence": "high",
+      "evidence": [
+        ".github/workflows/ci.yml"
+      ]
+    }
+  ],
+  "findings": [],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DOC001",
+    "DOC002",
+    "DOC003",
+    "DX001",
+    "DX002",
+    "DX003",
+    "DX004",
+    "DX005",
+    "DX006",
+    "DX007",
+    "DX008",
+    "DX009",
+    "DX010",
+    "DX011",
+    "PERF001",
+    "PERF101",
+    "PERF102",
+    "PERF103",
+    "PERF104",
+    "PERF105",
+    "PERF106",
+    "PERF107",
+    "PERF108",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH009",
+    "SH010",
+    "SH011",
+    "SH012",
+    "SH013",
+    "SH104",
+    "SH105",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH301",
+    "SH302"
+  ],
+  "suppressed": 0,
+  "score": 100,
+  "band": "low"
+}

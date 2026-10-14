@@ -1,0 +1,111 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────
+✔ Node.js detected
+✔ Framework detected: Express
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Security
+
+✖ SH202 .env file committed or not ignored [high]
+    .env is not covered by .gitignore
+    .env
+    Fix: Add the file to .gitignore, then remove it from git with `git rm --cached`.
+✖ SH205 Weak or empty application secret [high]
+    JWT_SECRET is weak or too short
+    .env:1
+    Fix: Generate a random value of at least 32 characters (Laravel: `php artisan key:generate`).
+✖ SH205 Weak or empty application secret [high]
+    SESSION_SECRET is weak or too short
+    .env:2
+    Fix: Generate a random value of at least 32 characters (Laravel: `php artisan key:generate`).
+✖ SH002 Permissive CORS configuration [high]
+    CORS allows any origin with credentials
+    server.js:6
+    Fix: List the exact origins that need access instead of '*' or a bare cors() call.
+✖ SH008 Dynamic code execution [high]
+    Code or command is built dynamically
+    server.js:13
+    Fix: Avoid eval. Use execFile/spawn with an argument array instead of building a shell string.
+⚠ SH003 Security headers not configured [medium]
+    No helmet or manual security headers found
+    package.json:4
+    Fix: Install helmet and add `app.use(helmet())` before your routes.
+⚠ SH101 Insecure session cookie settings [medium]
+    Session cookie sets secure to an unsafe value
+    server.js:9
+    Fix: Set `cookie: { secure: true, httpOnly: true, sameSite: 'lax' }`.
+⚠ SH103 No rate limiting on authentication routes [medium]
+    Authentication route has no rate limiter
+    server.js:11
+    Fix: Add express-rate-limit (or similar) to the login, register and reset routes.
+⚠ SH102 Unsafe JWT usage [medium]
+    jwt.verify does not pin the allowed algorithms
+    server.js:12
+    Fix: Read the secret from the environment, pass `algorithms: ['HS256']` to verify, and set 
+`expiresIn` when signing.
+⚠ SH301 .env.example missing or incomplete [low]
+    No .env.example documents the settings in .env
+    .env
+    Fix: Create .env.example with every key from .env and placeholder values.
+⚠ SH004 X-Powered-By header exposes Express [low]
+    x-powered-by is not disabled
+    server.js:5
+    Fix: Call `app.disable('x-powered-by')` or use helmet.
+⚠ SH101 Insecure session cookie settings [low]
+    Session cookie does not set sameSite
+    server.js:7
+    Fix: Set `cookie: { secure: true, httpOnly: true, sameSite: 'lax' }`.
+✔ SH001 Debug mode enabled - not found
+✔ SH013 Dangerous file permissions - not found
+✔ SH201 Hard-coded secret - not found
+✔ SH203 Private key or keystore file in project - not found
+✔ SH302 Required environment variable missing - not found
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Performance
+
+⚠ PERF301 Lockfile missing or out of sync [medium]
+    package.json has no lockfile
+    package.json
+    Fix: Commit the lockfile (npm install / composer install) and keep it in sync.
+⚠ PERF304 Unpinned dependency version [medium]
+    lodash is declared as '*'
+    package.json:10
+    Fix: Use a bounded range (^1.2.3) or an exact version.
+⚠ PERF303 Development tool in production dependencies [low]
+    eslint belongs in devDependencies
+    package.json:11
+    Fix: Move it to devDependencies (npm) or require-dev (Composer).
+✔ PERF302 Duplicate or overlapping dependencies - not found
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Project Health
+
+⚠ DX001 No automated tests detected [medium]
+    No test files or test directories found
+    Fix: Add a test runner (Jest/Vitest, PHPUnit/Pest) and cover the critical paths.
+⚠ DOC002 No license [low]
+    No LICENSE file found
+    Fix: Add a LICENSE file (choosealicense.com can help you pick one).
+⚠ DX002 No CI workflow [low]
+    No CI configuration found
+    Fix: Add a pipeline (for example GitHub Actions) that runs tests and `devshield scan`.
+⚠ DX008 .gitignore missing or incomplete [low]
+    No .gitignore in the project root
+    Fix: Add a .gitignore for your stack that covers dependencies, build output and .env.
+⚠ DOC001 README missing or nearly empty [low]
+    The README is nearly empty
+    README.md
+    Fix: Describe what the project does, how to install, run and test it.
+i DOC003 CONTRIBUTING or CHANGELOG missing [info]
+    No CONTRIBUTING file found
+    Fix: Add CONTRIBUTING.md and CHANGELOG.md.
+i DOC003 CONTRIBUTING or CHANGELOG missing [info]
+    No CHANGELOG file found
+    Fix: Add CONTRIBUTING.md and CHANGELOG.md.
+✔ DX007 Inconsistent version numbers - not found
+✔ DX009 Large file committed - not found
+────────────────────────────────────────────────────────────────────────────────────────────────────
+22 findings: 5 high, 7 medium, 8 low, 2 info
+
+Risk Score
+
+0 / 100
+
+Critical Risk
