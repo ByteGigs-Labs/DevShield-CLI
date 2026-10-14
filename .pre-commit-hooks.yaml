@@ -1,0 +1,15 @@
+- id: devshield
+  name: DevShield scan
+  description: Scan the project for security, performance and configuration problems.
+  entry: devshield scan
+  language: python
+  pass_filenames: false
+  always_run: true
+
+- id: devshield-env
+  name: DevShield env check
+  description: Check .env files for debug flags, exposure and weak secrets.
+  entry: devshield env
+  language: python
+  pass_filenames: false
+  files: (^|/)\.env(\..+)?$

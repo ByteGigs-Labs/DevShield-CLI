@@ -10,6 +10,11 @@ A process running as root inside the container turns any application bug into fu
 
 Create an unprivileged user and switch to it with a USER instruction.
 
+## Auto-fix
+
+`devshield fix` can resolve this rule for the cases it can change safely. Preview it with
+`devshield fix --dry-run --only PERF102`.
+
 ## Ignoring this rule
 
 Skip it everywhere in `devshield.yml`:

@@ -1,0 +1,53 @@
+site_name: DevShield
+site_description: Find security, performance and configuration problems in web projects.
+site_url: https://bytegigs-labs.github.io/DevShield-CLI/
+repo_url: https://github.com/ByteGigs-Labs/DevShield-CLI
+repo_name: ByteGigs-Labs/DevShield-CLI
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Guides:
+      - Commands: commands.md
+      - Configuration: configuration.md
+      - CI guides: ci.md
+  - Reference:
+      - Rules: rules/README.md
+      - Rule IDs: rule-ids.md
+      - Scoring: scoring.md
+      - Versioning and stability: stability.md
+  - Extending:
+      - Writing a plugin: plugins.md
+  - Changelog: changelog.md
+
+not_in_nav: |
+  /rules/*.md
+  !/rules/README.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences

@@ -91,10 +91,14 @@ Upcoming:
 # Installation
 
 ```bash
-pip install devshield-cli
+pipx install devshield-cli      # recommended: isolated, with `devshield` on your PATH
+pip install devshield-cli       # into the current environment
+docker run --rm -v "$PWD:/project" ghcr.io/bytegigs-labs/devshield scan .
 ```
 
-or
+Full documentation: <https://bytegigs-labs.github.io/DevShield-CLI/>
+
+or, from source
 
 ```bash
 git clone https://github.com/ByteGigs-Labs/DevShield-CLI
@@ -387,7 +391,16 @@ jobs:
       - run: devshield scan
 ```
 
-Upload findings to GitHub code scanning:
+The official action installs DevShield, uploads SARIF and can comment on pull requests
+(see [packaging/devshield-action](packaging/devshield-action/README.md)):
+
+```yaml
+      - uses: ByteGigs-Labs/devshield-action@v1
+        with:
+          fail-on: high
+```
+
+Or upload findings to GitHub code scanning yourself:
 
 ```yaml
       - run: devshield report --sarif devshield.sarif --fail-on critical
@@ -481,6 +494,8 @@ devshield/
 
 ├── core/
 
+├── fixers/
+
 ├── plugins/
 
 ├── tests/
@@ -489,22 +504,43 @@ devshield/
 ```
 
 
+# pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/ByteGigs-Labs/DevShield-CLI
+    rev: v1.0.0
+    hooks:
+      - id: devshield
+```
+
+
 # Plugin System
 
-DevShield is designed to be extensible.
-
-Create custom scanners using the plugin API.
+Third parties can ship rules as ordinary Python packages. DevShield finds them through the
+`devshield.rules` entry-point group.
 
 ```python
-from devshield import Rule
+from devshield import Category, Finding, ProjectContext, Rule, Severity
 
 
 class CustomRule(Rule):
-    id = "CUSTOM001"
+    id = "ACME001"  # SH, PERF, DX and DOC are reserved for built-in rules
+    title = "Example rule"
+    severity = Severity.MEDIUM
+    category = Category.SECURITY
 
-    title = "Example Rule"
-
-    severity = "medium"
-
-    def check(self): ...
+    def check(self, ctx: ProjectContext):
+        for file in ctx.source_files:
+            if "TODO(security)" in (ctx.read_text(file) or ""):
+                yield self.finding("Unresolved security TODO", file=file)
 ```
+
+```bash
+devshield plugins list     # installed plugins and their rules
+devshield rules list       # rules show where they come from
+```
+
+A crashing plugin produces a warning, never a failed scan. See the
+[plugin guide](docs/plugins.md), the [example plugin](examples/devshield-plugin-example) and the
+[stability promise](docs/stability.md).

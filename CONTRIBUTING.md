@@ -30,6 +30,10 @@ CI runs the same commands on Linux, macOS and Windows.
 2. Add a firing case and a quiet case for it in `tests/rules/cases_*.py`.
 3. Regenerate the docs page with `python scripts/gen_rule_docs.py`.
 
+Preview the documentation site with `pip install -e ".[docs]"`, `cp CHANGELOG.md docs/changelog.md`
+and `mkdocs serve`. The performance budget (`pytest -m perf`) must keep passing. Releases are
+described in [RELEASING.md](RELEASING.md).
+
 ## Pull requests
 
 - Keep changes focused; one rule or one fix per PR where possible.

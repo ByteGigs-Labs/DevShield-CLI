@@ -1,0 +1,113 @@
+name: DevShield
+description: Scan a project for security, performance and configuration problems, upload SARIF and comment on pull requests.
+author: ByteGigs Labs
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  path:
+    description: Directory to scan.
+    default: "."
+  version:
+    description: DevShield version to install (for example 1.0.0). Empty installs the latest release.
+    default: ""
+  fail-on:
+    description: Fail the job at this severity or above (info, low, medium, high, critical).
+    default: high
+  config:
+    description: Path to a devshield.yml. Empty uses the one in the project.
+    default: ""
+  baseline:
+    description: Baseline file. Only findings not in it are reported.
+    default: ""
+  sarif:
+    description: Upload results to GitHub code scanning (needs security-events write permission).
+    default: "true"
+  comment:
+    description: Post the report as a pull request comment (needs pull-requests write permission).
+    default: "true"
+  python-version:
+    description: Python version used to run DevShield.
+    default: "3.12"
+
+outputs:
+  exit-code:
+    description: Exit code of the scan (0 clean, 1 findings at or above fail-on).
+    value: ${{ steps.scan.outputs.exit-code }}
+  sarif-file:
+    description: Path of the SARIF report.
+    value: ${{ steps.scan.outputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install DevShield
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        if [ -n "$VERSION" ]; then
+          python -m pip install --quiet "devshield-cli==$VERSION"
+        else
+          python -m pip install --quiet devshield-cli
+        fi
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        SCAN_PATH: ${{ inputs.path }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        CONFIG: ${{ inputs.config }}
+        BASELINE: ${{ inputs.baseline }}
+      run: |
+        args=(report "$SCAN_PATH" --fail-on "$FAIL_ON"
+          --sarif "$RUNNER_TEMP/devshield.sarif" --md "$RUNNER_TEMP/devshield.md")
+        [ -n "$CONFIG" ] && args+=(--config "$CONFIG")
+        [ -n "$BASELINE" ] && args+=(--baseline "$BASELINE")
+        code=0
+        devshield "${args[@]}" || code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "sarif-file=$RUNNER_TEMP/devshield.sarif" >> "$GITHUB_OUTPUT"
+        # 2 and 3 mean DevShield itself could not run; fail now instead of hiding it.
+        if [ "$code" -gt 1 ]; then exit "$code"; fi
+
+    - name: Upload SARIF
+      if: ${{ inputs.sarif == 'true' && steps.scan.outputs.exit-code != '' }}
+      uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif-file }}
+        category: devshield
+
+    - name: Comment on the pull request
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' && steps.scan.outputs.exit-code != '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+      run: |
+        marker='<!-- devshield-report -->'
+        { echo "$marker"; head -c 60000 "$RUNNER_TEMP/devshield.md"; } > "$RUNNER_TEMP/comment.md"
+        existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1) || existing=""
+        if [ -n "$existing" ]; then
+          gh api --method PATCH "repos/$REPO/issues/comments/$existing" \
+            -F body=@"$RUNNER_TEMP/comment.md" > /dev/null \
+            || echo "::warning::Could not update the DevShield comment (read-only token?)"
+        else
+          gh api --method POST "repos/$REPO/issues/$PR/comments" \
+            -F body=@"$RUNNER_TEMP/comment.md" > /dev/null \
+            || echo "::warning::Could not post the DevShield comment (read-only token?)"
+        fi
+
+    - name: Apply the result
+      shell: bash
+      env:
+        CODE: ${{ steps.scan.outputs.exit-code }}
+      run: exit "${CODE:-0}"

@@ -10,6 +10,11 @@ Without .dockerignore the whole project, including .git, node_modules and .env, 
 
 Add a .dockerignore listing .git, node_modules, .env and build output.
 
+## Auto-fix
+
+`devshield fix` can resolve this rule for the cases it can change safely. Preview it with
+`devshield fix --dry-run --only PERF103`.
+
 ## Ignoring this rule
 
 Skip it everywhere in `devshield.yml`:
