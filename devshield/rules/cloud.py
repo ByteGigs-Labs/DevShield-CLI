@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 
 from devshield.core.context import ProjectContext
 from devshield.core.models import Category, Finding, Framework, Severity
-from devshield.core.parsers import HclBlock, parse_hcl_value
+from devshield.core.parsers import HclBlock, TerraformScope
 from devshield.core.rule import Rule
 
 IAC = frozenset({Framework.TERRAFORM, Framework.CLOUDFORMATION})
@@ -95,9 +95,17 @@ def cfn_statements(document: Any) -> Iterator[dict[str, Any]]:
             yield statement
 
 
-def hcl_statements(text: str) -> list[dict[str, Any]] | None:
+def terraform_scopes(ctx: ProjectContext) -> dict[str, TerraformScope]:
+    """One scope per directory: Terraform locals and variables belong to a module."""
+    by_directory: dict[str, list[HclBlock]] = {}
+    for file in ctx.terraform_files:
+        by_directory.setdefault(file.rpartition("/")[0], []).extend(ctx.terraform(file))
+    return {directory: TerraformScope(blocks) for directory, blocks in by_directory.items()}
+
+
+def hcl_statements(text: str, scope: TerraformScope) -> list[dict[str, Any]] | None:
     """Statements of an inline Terraform policy (jsonencode or heredoc JSON), else None."""
-    data = parse_hcl_value(text)
+    data = scope.value(text)
     statements = data.get("Statement") if isinstance(data, dict) else None
     if statements is None:
         return None
@@ -129,6 +137,7 @@ class PublicBucket(Rule):
     )
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
+        scopes = terraform_scopes(ctx)
         for file, block in terraform_blocks(ctx):
             if block.kind != "resource":
                 continue
@@ -151,7 +160,7 @@ class PublicBucket(Rule):
                             line=block.line_of(setting),
                         )
             elif kind == "aws_s3_bucket_policy" and self._public_hcl_policy(
-                block.value("policy") or ""
+                block.value("policy") or "", scopes[file.rpartition("/")[0]]
             ):
                 yield self.finding(
                     "Bucket policy allows every principal",
@@ -194,8 +203,8 @@ class PublicBucket(Rule):
                         )
 
     @classmethod
-    def _public_hcl_policy(cls, text: str) -> bool:
-        statements = hcl_statements(text)
+    def _public_hcl_policy(cls, text: str, scope: TerraformScope) -> bool:
+        statements = hcl_statements(text, scope)
         if statements is None:
             return cls._public_policy(text)
         return any(
@@ -225,11 +234,12 @@ class WildcardIamPolicy(Rule):
     remediation = "List the specific actions and resources the workload needs (least privilege)."
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
+        scopes = terraform_scopes(ctx)
         for file, block in terraform_blocks(ctx):
             if block.kind == "resource" and block.type in IAM_POLICY_TYPES:
                 text = block.value("policy") or ""
                 line = block.line_of("policy")
-                statements = hcl_statements(text)
+                statements = hcl_statements(text, scopes[file.rpartition("/")[0]])
                 if statements is not None:
                     for statement in statements:
                         if statement.get("Effect") == "Allow" and _has_star(

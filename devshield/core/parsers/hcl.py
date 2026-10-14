@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-_HEADER = re.compile(r'^\s*(resource|data|module|provider)\s+((?:"[^"]*"\s*)+|[\w-]+\s*)\{', re.M)
+_HEADER = re.compile(
+    r'^\s*(resource|data|module|provider|variable|output|locals)(?:\s+((?:"[^"]*"\s*)+|[\w-]+\s*))?\s*\{',
+    re.M,
+)
 _BLOCK = re.compile(r'^\s*([\w-]+)((?:\s+"[^"]*")*)\s*\{\s*$')
 _ATTRIBUTE = re.compile(r"^\s*([\w-]+)\s*=\s*(.*)$")
 _HEREDOC = re.compile(r"<<-?\s*([A-Za-z_][\w]*)\s*$")
@@ -40,7 +44,9 @@ class HclBlock:
         return [b for b in self.blocks if b.kind == name]
 
 
-def _labels(text: str) -> tuple[str, ...]:
+def _labels(text: str | None) -> tuple[str, ...]:
+    if not text:
+        return ()
     return tuple(re.findall(r'"([^"]*)"', text)) or tuple(text.split())
 
 
@@ -55,7 +61,7 @@ def _strip_comment(line: str) -> str:
 
 
 def parse_hcl(text: str) -> list[HclBlock]:
-    """Top-level resource, data, module and provider blocks."""
+    """Top-level resource, data, module, provider, variable, output and locals blocks."""
     lines = text.splitlines()
     blocks: list[HclBlock] = []
     index = 0
@@ -160,6 +166,14 @@ def _tokens(text: str) -> list[tuple[str, str]]:
     return found
 
 
+@dataclass(frozen=True)
+class Call:
+    """A function call such as ``concat(a, b)`` or ``merge(a, b)``."""
+
+    name: str
+    arguments: tuple[object, ...]
+
+
 class _ValueParser:
     def __init__(self, tokens: list[tuple[str, str]]) -> None:
         self.tokens = tokens
@@ -198,7 +212,9 @@ class _ValueParser:
         if self._peek()[1] == "(":  # a function call: jsonencode(x) is x, anything else is opaque
             self.position += 1
             arguments = self._arguments()
-            return arguments[0] if word == "jsonencode" and arguments else Opaque(word + "(...)")
+            if word == "jsonencode" and arguments:
+                return arguments[0]
+            return Call(word, tuple(arguments))
         if self._peek()[1] == "?":  # a conditional expression: cond ? a : b
             return Opaque(f"{word} {self._opaque().text}")
         return Opaque(word)
@@ -284,3 +300,55 @@ def parse_hcl_value(text: str) -> object:
         except ValueError:
             return Opaque("heredoc")
     return _ValueParser(_tokens(stripped)).value()
+
+
+_REFERENCE = re.compile(r"(local|var)\.(\w+)")
+MAX_RESOLVE_DEPTH = 8
+
+
+class TerraformScope:
+    """The locals and variable defaults of one Terraform module (one directory)."""
+
+    def __init__(self, blocks: Iterable[HclBlock]) -> None:
+        self.locals: dict[str, str] = {}
+        self.variables: dict[str, str] = {}
+        for block in blocks:
+            if block.kind == "locals":
+                self.locals.update({name: raw for name, (raw, _) in block.attributes.items()})
+            elif block.kind == "variable" and block.labels and block.value("default") is not None:
+                self.variables[block.labels[0]] = block.value("default") or ""
+
+    def value(self, text: str) -> object:
+        """``parse_hcl_value`` with local.x, var.x, concat() and merge() evaluated."""
+        return self.resolve(parse_hcl_value(text), 0)
+
+    def resolve(self, value: object, depth: int) -> object:
+        if depth > MAX_RESOLVE_DEPTH:
+            return Opaque("too deep")
+        if isinstance(value, Opaque):
+            match = _REFERENCE.fullmatch(value.text)
+            raw = None
+            if match:
+                source = self.locals if match.group(1) == "local" else self.variables
+                raw = source.get(match.group(2))
+            return self.resolve(parse_hcl_value(raw), depth + 1) if raw is not None else value
+        if isinstance(value, dict):
+            return {k: self.resolve(v, depth + 1) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self.resolve(v, depth + 1) for v in value]
+        if isinstance(value, Call):
+            return self._call(value, depth)
+        return value
+
+    def _call(self, call: Call, depth: int) -> object:
+        arguments = [self.resolve(a, depth + 1) for a in call.arguments]
+        lists = [a for a in arguments if isinstance(a, list)]
+        objects = [a for a in arguments if isinstance(a, dict)]
+        if call.name == "concat" and len(lists) == len(arguments):
+            return [item for items in lists for item in items]
+        if call.name == "merge" and len(objects) == len(arguments):
+            merged: dict[str, object] = {}
+            for mapping in objects:
+                merged.update(mapping)
+            return merged
+        return Opaque(f"{call.name}(...)")

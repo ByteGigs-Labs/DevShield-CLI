@@ -234,7 +234,7 @@ class TestParsers:
 
 class TestHclValues:
     def test_literals_lists_objects_and_jsonencode(self) -> None:
-        from devshield.core.parsers import Opaque, parse_hcl_value
+        from devshield.core.parsers import Call, Opaque, parse_hcl_value
 
         value = parse_hcl_value(
             'jsonencode({\n  a = "x"\n  "b" : [1, 2.5, true, null]\n  c = { d = var.y }\n'
@@ -244,7 +244,7 @@ class TestHclValues:
             "a": "x",
             "b": [1, 2.5, True, None],
             "c": {"d": Opaque("var.y")},
-            "e": Opaque("merge(...)"),
+            "e": Call("merge", (Opaque("local.a"), Opaque("local.b"))),
             "f": Opaque("cond ? 1 : 2"),
         }
 
@@ -255,3 +255,11 @@ class TestHclValues:
         assert parse_hcl_value("<<EOT\nnot json\nEOT") == Opaque("heredoc")
         assert parse_hcl_value("") == Opaque("")
         assert parse_hcl_value("{ a = ") == {"a": Opaque("")}
+
+
+def test_locals_and_variable_blocks_are_parsed() -> None:
+    blocks = parse_hcl(
+        'locals {\n  a = "x"\n  b = [1]\n}\nvariable "v" {\n  type = string\n  default = "d"\n}\n'
+    )
+    assert [(b.kind, b.labels) for b in blocks] == [("locals", ()), ("variable", ("v",))]
+    assert blocks[0].value("b") == "[1]" and blocks[1].value("default") == '"d"'

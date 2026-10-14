@@ -109,3 +109,76 @@ class TestDevProfiles:
 
         root = make_project({"devshield.yml": f"scan_dev_files: {value}\n"})
         assert load_config(root).scan_dev_files is (value == "true")
+
+
+class TestTerraformReferences:
+    ADMIN = '{ Effect = "Allow", Action = "*", Resource = "*" }'
+
+    def attach(self, expression: str, extra: str) -> dict[str, str]:
+        return {
+            "main.tf": (f'{extra}\nresource "aws_iam_policy" "p" {{\n  policy = {expression}\n}}\n')
+        }
+
+    def severities(self, make_project: MakeProject, files: dict[str, str]) -> list[Severity]:
+        return [f.severity for f in scan(make_project(files), "SH402").findings]
+
+    def test_locals_are_followed(self, make_project: MakeProject) -> None:
+        files = self.attach(
+            "jsonencode(local.doc)", f"locals {{\n  doc = {{ Statement = [{self.ADMIN}] }}\n}}"
+        )
+        assert self.severities(make_project, files) == [Severity.CRITICAL]
+
+    def test_a_local_that_holds_the_json_string_is_followed(
+        self, make_project: MakeProject
+    ) -> None:
+        extra = f"locals {{\n  doc = jsonencode({{ Statement = [{self.ADMIN}] }})\n}}"
+        assert self.severities(make_project, self.attach("local.doc", extra)) == [Severity.CRITICAL]
+
+    def test_variable_defaults_are_followed(self, make_project: MakeProject) -> None:
+        extra = f'variable "statements" {{\n  type = any\n  default = [{self.ADMIN}]\n}}'
+        files = self.attach("jsonencode({ Statement = var.statements })", extra)
+        assert self.severities(make_project, files) == [Severity.CRITICAL]
+
+    def test_concat_and_merge_are_evaluated(self, make_project: MakeProject) -> None:
+        extra = (
+            'locals {\n  safe = [{ Effect = "Allow", Action = "s3:Get*", Resource = "arn:x" }]\n'
+            f"  risky = [{self.ADMIN}]\n"
+            '  base  = { Version = "2012-10-17" }\n}'
+        )
+        files = self.attach(
+            "jsonencode(merge(local.base, { Statement = concat(local.safe, local.risky) }))", extra
+        )
+        assert self.severities(make_project, files) == [Severity.CRITICAL]
+
+    def test_safe_references_stay_quiet(self, make_project: MakeProject) -> None:
+        extra = 'locals {\n  doc = { Statement = [{ Effect = "Allow", Action = "s3:Get*", Resource = "arn:x" }] }\n}'
+        assert self.severities(make_project, self.attach("jsonencode(local.doc)", extra)) == []
+
+    def test_scopes_do_not_leak_between_directories(self, make_project: MakeProject) -> None:
+        files = {
+            "a/locals.tf": f"locals {{\n  doc = {{ Statement = [{self.ADMIN}] }}\n}}\n",
+            "b/main.tf": 'resource "aws_iam_policy" "p" {\n  policy = jsonencode(local.doc)\n}\n',
+        }
+        assert self.severities(make_project, files) == []
+
+    def test_what_cannot_be_resolved_is_not_guessed(self, make_project: MakeProject) -> None:
+        for expression in (
+            "jsonencode(module.iam.document)",
+            "data.aws_iam_policy_document.d.json",
+            "jsonencode(local.missing)",
+            'file("policy.json")',
+        ):
+            assert self.severities(make_project, self.attach(expression, "")) == [], expression
+
+    def test_self_referencing_locals_terminate(self, make_project: MakeProject) -> None:
+        extra = "locals {\n  a = local.b\n  b = local.a\n}"
+        assert self.severities(make_project, self.attach("local.a", extra)) == []
+
+    def test_bucket_policies_follow_references_too(self, make_project: MakeProject) -> None:
+        files = {
+            "main.tf": (
+                'locals {\n  doc = { Statement = [{ Effect = "Allow", Principal = "*", Action = "s3:*" }] }\n}\n'
+                'resource "aws_s3_bucket_policy" "p" {\n  policy = jsonencode(local.doc)\n}\n'
+            )
+        }
+        assert len(scan(make_project(files), "SH401").findings) == 1
