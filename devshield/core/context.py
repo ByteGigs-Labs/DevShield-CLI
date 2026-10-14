@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import fnmatch
 import json
 import os
 import re
@@ -52,12 +53,18 @@ DEFAULT_EXCLUDES = frozenset(
         "coverage",
         "dist",
         "node_modules",
-        "obj",
-        "target",
         "vendor",
         "venv",
     }
 )
+# Directories that are build output only when a project file next to them says so, so that a
+# folder that merely happens to be called "target" or "bin" is still scanned.
+BUILD_OUTPUT = {
+    "target": ("pom.xml", "build.gradle", "build.gradle.kts", "Cargo.toml"),
+    "obj": ("*.csproj", "*.fsproj", "*.vbproj", "*.sln"),
+    "bin": ("*.csproj", "*.fsproj", "*.vbproj", "*.sln"),
+}
+DEV_FILE = re.compile(r"(?:^|[-_./])(?:dev|development|local|test|testing|debug)(?:[-_./]|$)", re.I)
 MAX_FILE_BYTES = 1_000_000
 DOCKERFILE_PATTERNS = ("Dockerfile", "Dockerfile.*", "*.Dockerfile")
 COMPOSE_PATTERNS = ("docker-compose*.yml", "docker-compose*.yaml", "compose.yml", "compose.yaml")
@@ -85,6 +92,11 @@ def _is_example(name: str) -> bool:
     return name.endswith(EXAMPLE_SUFFIXES)
 
 
+def is_dev_path(rel: str) -> bool:
+    """Files meant for local development, where debug-style settings are expected."""
+    return DEV_FILE.search(rel.rsplit("/", 1)[-1]) is not None
+
+
 def is_test_path(rel: str) -> bool:
     *directories, name = rel.split("/")
     return (
@@ -105,9 +117,11 @@ class ProjectContext:
         exclude: Sequence[str] = (),
         respect_gitignore: bool = True,
         scan_history: bool = False,
+        scan_dev_files: bool = False,
     ) -> None:
         self.root = Path(root).resolve()
         self.scan_history = scan_history
+        self.scan_dev_files = scan_dev_files
         self._exclude = build_spec(exclude)
         self._respect_gitignore = respect_gitignore
         self._text: dict[str, str | None] = {}
@@ -128,7 +142,7 @@ class ProjectContext:
         for current, dirs, names in os.walk(self.root):
             parent = Path(current).relative_to(self.root).as_posix()
             parent = "" if parent == "." else parent
-            dirs[:] = sorted(d for d in dirs if not self._skip_dir(_join(parent, d)))
+            dirs[:] = sorted(d for d in dirs if not self._skip_dir(_join(parent, d), names))
             for name in sorted(names):
                 rel = _join(parent, name)
                 if not self._exclude.match_file(rel) and (
@@ -137,9 +151,13 @@ class ProjectContext:
                     found.append(rel)
         return tuple(sorted(found))
 
-    def _skip_dir(self, rel: str) -> bool:
+    def _skip_dir(self, rel: str, siblings: Sequence[str] = ()) -> bool:
+        name = rel.rsplit("/", 1)[-1]
+        markers = BUILD_OUTPUT.get(name, ())
+        if any(fnmatch.fnmatch(s, marker) for s in siblings for marker in markers):
+            return True
         return (
-            rel.rsplit("/", 1)[-1] in DEFAULT_EXCLUDES
+            name in DEFAULT_EXCLUDES
             or self._exclude.match_file(f"{rel}/")
             or self._gitignore.match_file(f"{rel}/")
         )
@@ -147,6 +165,10 @@ class ProjectContext:
     def match(self, *patterns: str) -> list[str]:
         spec = build_spec(patterns)
         return [f for f in self.files if spec.match_file(f)]
+
+    def is_dev_file(self, rel: str) -> bool:
+        """True for development-profile files, unless ``scan_dev_files`` turns the skip off."""
+        return not self.scan_dev_files and is_dev_path(rel)
 
     def is_gitignored(self, rel: str) -> bool:
         if rel not in self._ignored:

@@ -561,6 +561,17 @@ NEGATIVE: Negative = {
         },
         {**FLASK, "app.py": "app.config['WTF_CSRF_ENABLED'] = True\n"},
         {**SPRING, "src/main/java/S.java": "http.csrf(Customizer.withDefaults());\n"},
+        {
+            **SPRING,
+            "src/main/java/S.java": (
+                "http.csrf(c -> c.disable())\n"
+                "    .sessionManagement(m -> m.sessionCreationPolicy(SessionCreationPolicy.STATELESS));\n"
+            ),
+        },
+        {
+            **SPRING,
+            "src/main/java/S.java": "http.csrf().disable().oauth2ResourceServer(o -> o.jwt());\n",
+        },
     ],
     "SH108": [
         {

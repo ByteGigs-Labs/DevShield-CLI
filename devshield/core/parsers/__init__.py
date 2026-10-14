@@ -14,7 +14,7 @@ from devshield.core.parsers.dockerfile import (
     stages,
 )
 from devshield.core.parsers.dotenv import EnvEntry, parse_dotenv
-from devshield.core.parsers.hcl import HclBlock, parse_hcl
+from devshield.core.parsers.hcl import HclBlock, Opaque, parse_hcl, parse_hcl_value
 from devshield.core.parsers.php import PhpEnv, PhpExpr, parse_php_config
 from devshield.core.parsers.pyast import (
     MISSING,
@@ -38,6 +38,7 @@ __all__ = [
     "EnvEntry",
     "HclBlock",
     "Instruction",
+    "Opaque",
     "PhpEnv",
     "PhpExpr",
     "effective_user",
@@ -53,6 +54,7 @@ __all__ = [
     "parse_dockerfile",
     "parse_dotenv",
     "parse_hcl",
+    "parse_hcl_value",
     "parse_module",
     "parse_php_config",
     "parse_pipfile",

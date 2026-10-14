@@ -4,6 +4,7 @@ import re
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, ClassVar
 
+from devshield.core.context import is_dev_path
 from devshield.core.models import Finding, Framework
 from devshield.core.rule import Rule
 from devshield.core.search import Hit, search
@@ -31,12 +32,7 @@ def is_deployed_env(ctx: ProjectContext, file: str, values: dict[str, str]) -> b
     )
 
 
-DEV_FILE = re.compile(r"(?:^|[-_./])(?:dev|development|local|test|testing|debug)(?:[-_./]|$)", re.I)
-
-
-def is_dev_file(rel: str) -> bool:
-    """Files meant for local development, where debug-style settings are expected."""
-    return DEV_FILE.search(rel.rsplit("/", 1)[-1]) is not None
+is_dev_file = is_dev_path
 
 
 def is_application(ctx: ProjectContext) -> bool:

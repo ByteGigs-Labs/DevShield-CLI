@@ -70,7 +70,12 @@ def run_scan(
     config = config or load_config(root)
     registry = registry or default_registry()
     options = options or ScanOptions()
-    ctx = ProjectContext(root, exclude=config.exclude, scan_history=options.history)
+    ctx = ProjectContext(
+        root,
+        exclude=config.exclude,
+        scan_history=options.history,
+        scan_dev_files=config.scan_dev_files,
+    )
 
     rules_run: list[str] = []
     timings: dict[str, float] = {}

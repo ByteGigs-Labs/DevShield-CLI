@@ -6,6 +6,7 @@ which is enough to read the settings that rules need. Expressions are kept as ra
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -127,4 +128,159 @@ def _balance(value: str, lines: list[str], index: int) -> tuple[str, int]:
         parts.append(part)
         total += depth(part)
         index += 1
-    return " ".join(parts), index
+    return "\n".join(parts), index
+
+
+@dataclass(frozen=True)
+class Opaque:
+    """An expression that is not a literal, such as ``aws_s3_bucket.b.arn`` or ``var.name``."""
+
+    text: str
+
+
+_TOKEN = re.compile(
+    r"""\s*(?:(?P<nl>\n)|(?P<string>"(?:[^"\\]|\\.)*")|(?P<number>-?\d+(?:\.\d+)?)"""
+    r"""|(?P<word>[A-Za-z_][\w\-]*(?:\.[\w\-*]+|\[\d+\]|\[\*\])*)|(?P<punct>=>|[{}\[\](),=:?]))"""
+)
+
+
+def _tokens(text: str) -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    position = 0
+    while position < len(text):
+        stripped = text[position:].lstrip(" \t\r")
+        position = len(text) - len(stripped)
+        match = _TOKEN.match(text, position)
+        if not match or match.end() == position:
+            position += 1  # an operator or character the reader does not need
+            continue
+        position = match.end()
+        kind = match.lastgroup or ""
+        found.append((kind, match.group(kind)))
+    return found
+
+
+class _ValueParser:
+    def __init__(self, tokens: list[tuple[str, str]]) -> None:
+        self.tokens = tokens
+        self.position = 0
+
+    def _peek(self) -> tuple[str, str]:
+        return self.tokens[self.position] if self.position < len(self.tokens) else ("end", "")
+
+    def _skip_newlines(self) -> None:
+        while self._peek()[0] == "nl":
+            self.position += 1
+
+    def value(self) -> object:
+        self._skip_newlines()
+        kind, text = self._peek()
+        if kind == "string":
+            self.position += 1
+            return text[1:-1]
+        if kind == "number":
+            self.position += 1
+            return float(text) if "." in text else int(text)
+        if text == "{":
+            return self._object()
+        if text == "[":
+            return self._list()
+        if kind == "word":
+            self.position += 1
+            return self._word(text)
+        return self._opaque()
+
+    def _word(self, word: str) -> object:
+        if word in {"true", "false"}:
+            return word == "true"
+        if word == "null":
+            return None
+        if self._peek()[1] == "(":  # a function call: jsonencode(x) is x, anything else is opaque
+            self.position += 1
+            arguments = self._arguments()
+            return arguments[0] if word == "jsonencode" and arguments else Opaque(word + "(...)")
+        if self._peek()[1] == "?":  # a conditional expression: cond ? a : b
+            return Opaque(f"{word} {self._opaque().text}")
+        return Opaque(word)
+
+    def _arguments(self) -> list[object]:
+        found: list[object] = []
+        while True:
+            self._skip_newlines()
+            kind, text = self._peek()
+            if kind == "end" or text == ")":
+                self.position += 1
+                return found
+            if text == ",":
+                self.position += 1
+                continue
+            found.append(self.value())
+
+    def _object(self) -> dict[str, object]:
+        self.position += 1
+        result: dict[str, object] = {}
+        while True:
+            self._skip_newlines()
+            kind, text = self._peek()
+            if kind == "end":
+                return result
+            if text == "}":
+                self.position += 1
+                return result
+            if text == ",":
+                self.position += 1
+                continue
+            if kind not in {"word", "string"}:
+                self.position += 1
+                continue
+            self.position += 1
+            key = text[1:-1] if kind == "string" else text
+            self._skip_newlines()
+            if self._peek()[1] in {"=", ":"}:
+                self.position += 1
+                result[key] = self.value()
+
+    def _list(self) -> list[object]:
+        self.position += 1
+        result: list[object] = []
+        while True:
+            self._skip_newlines()
+            kind, text = self._peek()
+            if kind == "end":
+                return result
+            if text == "]":
+                self.position += 1
+                return result
+            if text == ",":
+                self.position += 1
+                continue
+            result.append(self.value())
+
+    def _opaque(self) -> Opaque:
+        """Skip one unreadable expression up to the next separator at the same depth."""
+        start, depth = self.position, 0
+        while self.position < len(self.tokens):
+            kind, text = self.tokens[self.position]
+            if depth == 0 and (kind == "nl" or text in {",", "}", "]", ")"}):
+                break
+            depth += text in {"{", "[", "("}
+            depth -= text in {"}", "]", ")"}
+            self.position += 1
+        if self.position == start:
+            self.position += 1
+        return Opaque(" ".join(t for _, t in self.tokens[start : self.position]))
+
+
+def parse_hcl_value(text: str) -> object:
+    """Read an HCL literal (object, list, string, number, boolean), unwrapping ``jsonencode``.
+
+    Anything that is not a literal comes back as ``Opaque``. Heredoc JSON is decoded as JSON.
+    """
+    stripped = text.strip()
+    heredoc = re.match(r"<<-?\s*(\w+)\n(.*)\n\s*\1\s*$", stripped, re.S)
+    if heredoc:
+        try:
+            return json.loads(heredoc.group(2))
+        except ValueError:
+            return Opaque("heredoc")
+    return _ValueParser(_tokens(stripped)).value()

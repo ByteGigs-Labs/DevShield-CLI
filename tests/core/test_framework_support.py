@@ -100,15 +100,28 @@ class TestDetection:
         )
         assert Framework.CLOUDFORMATION not in detected(root)
 
-    def test_build_output_directories_are_skipped(self, make_project: MakeProject) -> None:
+    def test_build_output_is_skipped_only_next_to_its_project_file(
+        self, make_project: MakeProject
+    ) -> None:
         root = make_project(
             {
+                "pom.xml": "<project/>",
                 "target/classes/application.properties": "x=1\n",
-                ".terraform/modules/m/main.tf": 'resource "a" "b" {}\n',
+                "App.csproj": "<Project/>",
                 "obj/Debug/Gen.cs": "class A {}\n",
+                "bin/Debug/App.cs": "class B {}\n",
+                ".terraform/modules/m/main.tf": 'resource "a" "b" {}\n',
             }
         )
-        assert ProjectContext(root).files == ()
+        assert ProjectContext(root).files == ("App.csproj", "pom.xml")
+
+    def test_folders_that_only_share_a_name_are_still_scanned(
+        self, make_project: MakeProject
+    ) -> None:
+        root = make_project(
+            {"app.py": "x = 1\n", "target/goals.py": "y = 2\n", "bin/run.sh": "echo\n"}
+        )
+        assert ProjectContext(root).files == ("app.py", "bin/run.sh", "target/goals.py")
 
 
 def test_test_paths_for_the_new_ecosystems() -> None:
@@ -187,10 +200,10 @@ class TestParsers:
         first, second, third = parse_hcl(text)
         assert (first.kind, first.labels, first.line) == ("resource", ("aws_s3_bucket", "b"), 2)
         assert first.value("bucket") == '"x"' and first.line_of("bucket") == 3
-        assert first.value("tags") == '{ a = "b" }'
+        assert first.value("tags") == '{\na = "b"\n}'
         assert first.children("versioning")[0].value("enabled") == "true"
         assert '{"a": "}"}' in (first.value("policy") or "")
-        assert first.value("list") == '[ "one", "two", ]'
+        assert first.value("list") == '[\n"one",\n"two",\n]'
         assert second.value("storage_encrypted") == "false"
         assert third.kind == "data" and third.children("statement")[0].value("effect") == '"Allow"'
         assert parse_hcl("nothing here") == []
@@ -217,3 +230,28 @@ class TestParsers:
         literals = {line: string_literals(value) for _, value, line in found}
         assert literals == {5: ["fallback"], 6: ["dev"], 7: ["z"], 8: []}
         assert parse_module("def (") is None
+
+
+class TestHclValues:
+    def test_literals_lists_objects_and_jsonencode(self) -> None:
+        from devshield.core.parsers import Opaque, parse_hcl_value
+
+        value = parse_hcl_value(
+            'jsonencode({\n  a = "x"\n  "b" : [1, 2.5, true, null]\n  c = { d = var.y }\n'
+            "  e = merge(local.a, local.b)\n  f = cond ? 1 : 2\n})"
+        )
+        assert value == {
+            "a": "x",
+            "b": [1, 2.5, True, None],
+            "c": {"d": Opaque("var.y")},
+            "e": Opaque("merge(...)"),
+            "f": Opaque("cond ? 1 : 2"),
+        }
+
+    def test_heredoc_json_and_garbage(self) -> None:
+        from devshield.core.parsers import Opaque, parse_hcl_value
+
+        assert parse_hcl_value('<<-EOT\n  {"a": [1]}\n  EOT') == {"a": [1]}
+        assert parse_hcl_value("<<EOT\nnot json\nEOT") == Opaque("heredoc")
+        assert parse_hcl_value("") == Opaque("")
+        assert parse_hcl_value("{ a = ") == {"a": Opaque("")}

@@ -19,6 +19,8 @@ severity:
   minimum: info
   fail_on: high
 exclude: []
+# Also check development-profile files such as application-dev.properties and settings/dev.py.
+scan_dev_files: false
 report:
   format: terminal
 deps:
@@ -78,6 +80,7 @@ class Config(_Section):
     ignore: list[str] = []
     baseline: str | None = None
     exclude: list[str] = []
+    scan_dev_files: bool = False
     severity: SeverityConfig = SeverityConfig()
     report: ReportConfig = ReportConfig()
     auto_fix: AutoFixConfig = AutoFixConfig()

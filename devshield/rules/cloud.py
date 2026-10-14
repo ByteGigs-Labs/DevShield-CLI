@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 
 from devshield.core.context import ProjectContext
 from devshield.core.models import Category, Finding, Framework, Severity
-from devshield.core.parsers import HclBlock
+from devshield.core.parsers import HclBlock, parse_hcl_value
 from devshield.core.rule import Rule
 
 IAC = frozenset({Framework.TERRAFORM, Framework.CLOUDFORMATION})
@@ -95,6 +95,20 @@ def cfn_statements(document: Any) -> Iterator[dict[str, Any]]:
             yield statement
 
 
+def hcl_statements(text: str) -> list[dict[str, Any]] | None:
+    """Statements of an inline Terraform policy (jsonencode or heredoc JSON), else None."""
+    data = parse_hcl_value(text)
+    statements = data.get("Statement") if isinstance(data, dict) else None
+    if statements is None:
+        return None
+    return [s for s in _as_list(statements) if isinstance(s, dict)]
+
+
+def _everyone(statement: dict[str, Any]) -> bool:
+    principal = statement.get("Principal")
+    return principal == "*" or (isinstance(principal, dict) and _has_star(principal.get("AWS")))
+
+
 def _has_star(value: Any) -> bool:
     return any(item == "*" for item in _as_list(value))
 
@@ -136,7 +150,7 @@ class PublicBucket(Rule):
                             file=file,
                             line=block.line_of(setting),
                         )
-            elif kind == "aws_s3_bucket_policy" and self._public_policy(
+            elif kind == "aws_s3_bucket_policy" and self._public_hcl_policy(
                 block.value("policy") or ""
             ):
                 yield self.finding(
@@ -168,13 +182,9 @@ class PublicBucket(Rule):
                         )
             elif kind == "AWS::S3::BucketPolicy":
                 for statement in cfn_statements(props.get("PolicyDocument")):
-                    principal = statement.get("Principal")
-                    everyone = principal == "*" or (
-                        isinstance(principal, dict) and _has_star(principal.get("AWS"))
-                    )
                     if (
                         statement.get("Effect") == "Allow"
-                        and everyone
+                        and _everyone(statement)
                         and "Condition" not in statement
                     ):
                         yield self.finding(
@@ -182,6 +192,15 @@ class PublicBucket(Rule):
                             file=file,
                             line=cfn_line(ctx, file, logical_id, "PolicyDocument"),
                         )
+
+    @classmethod
+    def _public_hcl_policy(cls, text: str) -> bool:
+        statements = hcl_statements(text)
+        if statements is None:
+            return cls._public_policy(text)
+        return any(
+            s.get("Effect") == "Allow" and _everyone(s) and "Condition" not in s for s in statements
+        )
 
     @staticmethod
     def _public_policy(text: str) -> bool:
@@ -209,12 +228,16 @@ class WildcardIamPolicy(Rule):
         for file, block in terraform_blocks(ctx):
             if block.kind == "resource" and block.type in IAM_POLICY_TYPES:
                 text = block.value("policy") or ""
-                if "Deny" in text:
-                    continue
-                if POLICY_ACTION.search(text):
-                    yield self._wildcard(
-                        file, block.line_of("policy"), bool(POLICY_RESOURCE.search(text))
-                    )
+                line = block.line_of("policy")
+                statements = hcl_statements(text)
+                if statements is not None:
+                    for statement in statements:
+                        if statement.get("Effect") == "Allow" and _has_star(
+                            statement.get("Action")
+                        ):
+                            yield self._wildcard(file, line, _has_star(statement.get("Resource")))
+                elif "Deny" not in text and POLICY_ACTION.search(text):
+                    yield self._wildcard(file, line, bool(POLICY_RESOURCE.search(text)))
             elif block.kind == "data" and block.type == "aws_iam_policy_document":
                 for item in block.children("statement"):
                     effect = unquote(item.value("effect")) or "Allow"

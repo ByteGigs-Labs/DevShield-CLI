@@ -6,7 +6,6 @@ import re
 
 from devshield.core.context import ProjectContext
 from devshield.core.parsers import module_assignments
-from devshield.rules._bases import is_dev_file
 
 
 def django_settings(ctx: ProjectContext, include_dev: bool = False) -> list[str]:
@@ -16,7 +15,7 @@ def django_settings(ctx: ProjectContext, include_dev: bool = False) -> list[str]
         for f in ctx.python_files
         if f.rsplit("/", 1)[-1] == "settings.py" or "/settings/" in f"/{f}"
     ]
-    return files if include_dev else [f for f in files if not is_dev_file(f)]
+    return files if include_dev else [f for f in files if not ctx.is_dev_file(f)]
 
 
 def settings_values(

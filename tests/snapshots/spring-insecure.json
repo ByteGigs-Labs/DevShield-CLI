@@ -119,7 +119,7 @@
       "title": "CSRF protection disabled",
       "severity": "medium",
       "category": "authentication",
-      "message": "Spring Security CSRF protection is disabled",
+      "message": "CSRF protection is disabled and the app is not configured as stateless",
       "location": {
         "file": "src/main/java/com/example/SecurityConfig.java",
         "line": 12,
