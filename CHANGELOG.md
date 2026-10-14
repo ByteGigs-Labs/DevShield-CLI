@@ -25,6 +25,11 @@ All notable changes to this project are documented here. The format follows
 - Documentation site with screenshots, pre-commit hooks, a Docker image, a GitHub Action and
   release automation (`Prepare release` workflow, PyPI publishing, action repository sync).
 
+- Framework packs: Django, FastAPI, Flask, NestJS, Spring Boot, ASP.NET Core, Terraform and
+  CloudFormation, with detectors, 20 new rules (SH014-SH020, SH106-SH109, SH206-SH208, SH303,
+  SH401-SH405), fixtures and docs. SH001-SH003 now cover these stacks too, and `devshield fix`
+  creates starter CI workflows for Python, Java and .NET projects.
+
 ### Changed
 
 - Scans of large repositories are much faster: files that cannot match a rule are ruled out with

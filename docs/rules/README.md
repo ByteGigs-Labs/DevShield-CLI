@@ -45,15 +45,35 @@
 | [SH011](SH011.md) | high | security | Risky docker-compose service configuration |  |
 | [SH012](SH012.md) | high | security | Secret baked into Dockerfile |  |
 | [SH013](SH013.md) | medium | security | Dangerous file permissions |  |
+| [SH014](SH014.md) | medium | security | Django accepts any Host header |  |
+| [SH015](SH015.md) | medium | security | Django does not enforce HTTPS |  |
+| [SH016](SH016.md) | medium | security | Permissive CORS in a Python, Java or .NET API |  |
+| [SH017](SH017.md) | low | security | API documentation exposed |  |
+| [SH018](SH018.md) | high | security | Spring Boot management or debug endpoints exposed |  |
+| [SH019](SH019.md) | high | security | Unsafe code execution or deserialization in Python |  |
+| [SH020](SH020.md) | high | security | SQL query built from string formatting |  |
 | [SH101](SH101.md) | medium | authentication | Insecure session cookie settings |  |
 | [SH102](SH102.md) | medium | authentication | Unsafe JWT usage |  |
 | [SH103](SH103.md) | medium | authentication | No rate limiting on authentication routes |  |
 | [SH104](SH104.md) | medium | authentication | Laravel session cookie not hardened |  |
 | [SH105](SH105.md) | medium | authentication | No rate limiting on Laravel auth routes |  |
+| [SH106](SH106.md) | medium | authentication | Session cookies not hardened |  |
+| [SH107](SH107.md) | medium | authentication | CSRF protection disabled |  |
+| [SH108](SH108.md) | high | authentication | Spring Security allows every request |  |
+| [SH109](SH109.md) | medium | authentication | NestJS request validation not enabled |  |
 | [SH201](SH201.md) | high | secrets | Hard-coded secret |  |
 | [SH202](SH202.md) | high | secrets | .env file committed or not ignored | yes |
 | [SH203](SH203.md) | critical | secrets | Private key or keystore file in project |  |
 | [SH204](SH204.md) | high | secrets | Secret in git history |  |
 | [SH205](SH205.md) | high | secrets | Weak or empty application secret |  |
+| [SH206](SH206.md) | high | secrets | Hard-coded framework secret key |  |
+| [SH207](SH207.md) | high | secrets | Credential written in an application config file |  |
+| [SH208](SH208.md) | high | secrets | Database password written in Django settings |  |
 | [SH301](SH301.md) | low | configuration | .env.example missing or incomplete | yes |
 | [SH302](SH302.md) | medium | configuration | Required environment variable missing |  |
+| [SH303](SH303.md) | medium | configuration | Hibernate changes the database schema at startup |  |
+| [SH401](SH401.md) | high | security | S3 bucket is publicly accessible |  |
+| [SH402](SH402.md) | high | security | IAM policy grants wildcard permissions |  |
+| [SH403](SH403.md) | high | security | Security group open to the internet |  |
+| [SH404](SH404.md) | medium | security | Storage encryption at rest not enabled |  |
+| [SH405](SH405.md) | high | security | Database reachable from the internet |  |

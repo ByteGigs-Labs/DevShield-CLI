@@ -17,6 +17,14 @@ FRAMEWORK_LABELS = {
     Framework.NODE: "Node.js detected",
     Framework.DOCKER: "Docker detected",
     Framework.GITHUB_ACTIONS: "GitHub Actions detected",
+    Framework.DJANGO: "Framework detected: Django",
+    Framework.FASTAPI: "Framework detected: FastAPI",
+    Framework.FLASK: "Framework detected: Flask",
+    Framework.NESTJS: "Framework detected: NestJS",
+    Framework.SPRING: "Framework detected: Spring Boot",
+    Framework.ASPNET: "Framework detected: ASP.NET Core",
+    Framework.TERRAFORM: "Terraform detected",
+    Framework.CLOUDFORMATION: "CloudFormation detected",
 }
 SEVERITY_STYLE = {
     Severity.CRITICAL: ("✖", "bold red"),

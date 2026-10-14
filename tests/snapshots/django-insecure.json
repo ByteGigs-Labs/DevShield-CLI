@@ -1,0 +1,326 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "django",
+      "confidence": "high",
+      "evidence": [
+        "Python dependency django",
+        "manage.py"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "SH201",
+      "title": "Hard-coded secret",
+      "severity": "high",
+      "category": "secrets",
+      "message": "Hard-coded secret found: djan******",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 5,
+        "column": null
+      },
+      "remediation": "Revoke the credential, move it to an environment variable or secret manager, and remove it from git history.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH206",
+      "title": "Hard-coded framework secret key",
+      "severity": "high",
+      "category": "secrets",
+      "message": "SECRET_KEY is a hard-coded string",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 5,
+        "column": null
+      },
+      "remediation": "Load the key from an environment variable or a secret manager and fail to start when it is missing.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH001",
+      "title": "Debug mode enabled",
+      "severity": "high",
+      "category": "security",
+      "message": "Django settings set DEBUG = True",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 6,
+        "column": null
+      },
+      "remediation": "Set APP_DEBUG=false (and NODE_ENV=production) for every deployed environment.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH201",
+      "title": "Hard-coded secret",
+      "severity": "high",
+      "category": "secrets",
+      "message": "Hard-coded secret found: shop******",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 28,
+        "column": null
+      },
+      "remediation": "Revoke the credential, move it to an environment variable or secret manager, and remove it from git history.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH208",
+      "title": "Database password written in Django settings",
+      "severity": "high",
+      "category": "secrets",
+      "message": "DATABASES contains a literal PASSWORD",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 28,
+        "column": null
+      },
+      "remediation": "Read the password from an environment variable, for example os.environ['DB_PASSWORD'].",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH020",
+      "title": "SQL query built from string formatting",
+      "severity": "high",
+      "category": "security",
+      "message": "Query is built from a formatted string",
+      "location": {
+        "file": "shop/views.py",
+        "line": 22,
+        "column": null
+      },
+      "remediation": "Use parameterised queries: cursor.execute(sql, params), PreparedStatement with ?, or FromSqlInterpolated / SqlParameter in .NET.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH019",
+      "title": "Unsafe code execution or deserialization in Python",
+      "severity": "high",
+      "category": "security",
+      "message": "Code or command is built dynamically",
+      "location": {
+        "file": "shop/views.py",
+        "line": 27,
+        "column": null
+      },
+      "remediation": "Avoid eval and exec. Pass subprocess an argument list without shell=True, use json instead of pickle, and yaml.safe_load instead of yaml.load.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH019",
+      "title": "Unsafe code execution or deserialization in Python",
+      "severity": "high",
+      "category": "security",
+      "message": "Shell command is built dynamically",
+      "location": {
+        "file": "shop/views.py",
+        "line": 28,
+        "column": null
+      },
+      "remediation": "Avoid eval and exec. Pass subprocess an argument list without shell=True, use json instead of pickle, and yaml.safe_load instead of yaml.load.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC001",
+      "title": "README missing or nearly empty",
+      "severity": "medium",
+      "category": "documentation",
+      "message": "No README found",
+      "location": null,
+      "remediation": "Describe what the project does, how to install, run and test it.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX001",
+      "title": "No automated tests detected",
+      "severity": "medium",
+      "category": "developer_experience",
+      "message": "No test files or test directories found",
+      "location": null,
+      "remediation": "Add a test runner (Jest/Vitest, PHPUnit/Pest) and cover the critical paths.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH014",
+      "title": "Django accepts any Host header",
+      "severity": "medium",
+      "category": "security",
+      "message": "ALLOWED_HOSTS contains '*'",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 7,
+        "column": null
+      },
+      "remediation": "List the real host names in ALLOWED_HOSTS, for example ['example.com'].",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH107",
+      "title": "CSRF protection disabled",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "CsrfViewMiddleware is not in MIDDLEWARE",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 17,
+        "column": null
+      },
+      "remediation": "Keep CSRF protection on for cookie-based sessions; disable it only for stateless token APIs, and scope the exemption to those endpoints.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH106",
+      "title": "Session cookies not hardened",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "SESSION_COOKIE_SECURE = False",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 33,
+        "column": null
+      },
+      "remediation": "Enable the Secure and HttpOnly flags for session and CSRF cookies.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH106",
+      "title": "Session cookies not hardened",
+      "severity": "medium",
+      "category": "authentication",
+      "message": "SESSION_COOKIE_SECURE is False",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 33,
+        "column": null
+      },
+      "remediation": "Enable the Secure and HttpOnly flags for session and CSRF cookies.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH016",
+      "title": "Permissive CORS in a Python, Java or .NET API",
+      "severity": "medium",
+      "category": "security",
+      "message": "CORS allows any origin",
+      "location": {
+        "file": "mysite/settings.py",
+        "line": 34,
+        "column": null
+      },
+      "remediation": "List the exact origins that need access instead of '*'.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH019",
+      "title": "Unsafe code execution or deserialization in Python",
+      "severity": "medium",
+      "category": "security",
+      "message": "pickle.loads can run code from untrusted data",
+      "location": {
+        "file": "shop/views.py",
+        "line": 14,
+        "column": null
+      },
+      "remediation": "Avoid eval and exec. Pass subprocess an argument list without shell=True, use json instead of pickle, and yaml.safe_load instead of yaml.load.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH019",
+      "title": "Unsafe code execution or deserialization in Python",
+      "severity": "medium",
+      "category": "security",
+      "message": "yaml.load without a safe loader can run code",
+      "location": {
+        "file": "shop/views.py",
+        "line": 29,
+        "column": null
+      },
+      "remediation": "Avoid eval and exec. Pass subprocess an argument list without shell=True, use json instead of pickle, and yaml.safe_load instead of yaml.load.",
+      "fixable": false
+    },
+    {
+      "rule_id": "DOC002",
+      "title": "No license",
+      "severity": "low",
+      "category": "documentation",
+      "message": "No LICENSE file found",
+      "location": null,
+      "remediation": "Add a LICENSE file (choosealicense.com can help you pick one).",
+      "fixable": false
+    },
+    {
+      "rule_id": "DX002",
+      "title": "No CI workflow",
+      "severity": "low",
+      "category": "developer_experience",
+      "message": "No CI configuration found",
+      "location": null,
+      "remediation": "Add a pipeline (for example GitHub Actions) that runs tests and `devshield scan`.",
+      "fixable": true
+    },
+    {
+      "rule_id": "DX008",
+      "title": ".gitignore missing or incomplete",
+      "severity": "low",
+      "category": "developer_experience",
+      "message": "No .gitignore in the project root",
+      "location": null,
+      "remediation": "Add a .gitignore for your stack that covers dependencies, build output and .env.",
+      "fixable": false
+    },
+    {
+      "rule_id": "SH107",
+      "title": "CSRF protection disabled",
+      "severity": "low",
+      "category": "authentication",
+      "message": "csrf_exempt turns CSRF protection off for this view",
+      "location": {
+        "file": "shop/views.py",
+        "line": 12,
+        "column": null
+      },
+      "remediation": "Keep CSRF protection on for cookie-based sessions; disable it only for stateless token APIs, and scope the exemption to those endpoints.",
+      "fixable": false
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DOC001",
+    "DOC002",
+    "DOC003",
+    "DX001",
+    "DX002",
+    "DX007",
+    "DX008",
+    "DX009",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH013",
+    "SH014",
+    "SH015",
+    "SH016",
+    "SH019",
+    "SH020",
+    "SH106",
+    "SH107",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH206",
+    "SH208",
+    "SH301",
+    "SH302"
+  ],
+  "suppressed": 0,
+  "baselined": 0,
+  "score": 4,
+  "band": "critical"
+}

@@ -51,6 +51,7 @@ def test_terminal_snapshot(fixtures: Path, name: str) -> None:
 
 
 def test_clean_fixtures_have_no_findings(fixtures: Path) -> None:
-    for name in ("laravel-clean", "empty"):
+    clean = [*sorted(p.name for p in FIXTURES.iterdir() if p.name.endswith("-clean")), "empty"]
+    for name in clean:
         result = scan_fixture(fixtures, name)
         assert result.findings == () and result.score == 100

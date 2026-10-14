@@ -17,6 +17,14 @@ REACT = '{"dependencies": {"react": "18"}}'
 NEXT = '{"dependencies": {"next": "14"}}'
 LARAVEL = {"artisan": "", "composer.json": '{"require": {"laravel/framework": "^11"}}'}
 WORKFLOW = ".github/workflows/ci.yml"
+DJANGO = {"requirements.txt": "Django==5.0\n"}
+FASTAPI = {"requirements.txt": "fastapi==0.110\n"}
+FLASK = {"requirements.txt": "Flask==3.0\n"}
+NEST = '{"dependencies": {"@nestjs/core": "10"}}'
+SPRING = {"pom.xml": "<parent><artifactId>spring-boot-starter-parent</artifactId></parent>\n"}
+ASPNET = {"Web.csproj": '<Project Sdk="Microsoft.NET.Sdk.Web"></Project>\n'}
+TERRAFORM = "main.tf"
+CLOUDFORMATION = "template.yaml"
 AWS_KEY = "AKIA" + "Q3EGRXZ7K2JTHPLM"
 GITHUB_TOKEN = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
 GENERIC_SECRET = "q8Zr2LmP0v" + "Xw93TbYk6Nd"

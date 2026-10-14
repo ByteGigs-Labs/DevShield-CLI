@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "frameworks": [
+    {
+      "framework": "django",
+      "confidence": "high",
+      "evidence": [
+        "Python dependency django",
+        "manage.py"
+      ]
+    },
+    {
+      "framework": "github_actions",
+      "confidence": "high",
+      "evidence": [
+        ".github/workflows/ci.yml"
+      ]
+    }
+  ],
+  "findings": [],
+  "errors": [],
+  "warnings": [],
+  "rules_run": [
+    "DOC001",
+    "DOC002",
+    "DOC003",
+    "DX001",
+    "DX002",
+    "DX003",
+    "DX004",
+    "DX005",
+    "DX006",
+    "DX007",
+    "DX008",
+    "DX009",
+    "DX010",
+    "DX011",
+    "PERF301",
+    "PERF302",
+    "PERF303",
+    "PERF304",
+    "SH001",
+    "SH013",
+    "SH014",
+    "SH015",
+    "SH016",
+    "SH019",
+    "SH020",
+    "SH106",
+    "SH107",
+    "SH201",
+    "SH202",
+    "SH203",
+    "SH205",
+    "SH206",
+    "SH208",
+    "SH301",
+    "SH302"
+  ],
+  "suppressed": 0,
+  "baselined": 0,
+  "score": 100,
+  "band": "low"
+}

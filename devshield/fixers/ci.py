@@ -64,6 +64,33 @@ NPM_CACHE_STEP = """\
           path: ~/.npm
           key: npm-${{ hashFiles('package.json') }}
 """
+SETUP_PYTHON = "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0"
+SETUP_JAVA = "actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1"
+SETUP_DOTNET = "actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1"
+PYTHON_STEPS = """\
+      - uses: {setup}
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: {install}
+      - run: pytest
+"""
+JAVA_STEPS = """\
+      - uses: {setup}
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: {tool}
+      - run: {build}
+"""
+DOTNET_STEPS = """\
+      - uses: {setup}
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      - run: dotnet test --no-build
+"""
 GENERIC_STEPS = """\
       - run: echo "Add your build and test commands here"
 """
@@ -103,6 +130,22 @@ class StarterWorkflow(Fixer):
         ctx = fc.ctx
         if ctx.has_framework(Framework.LARAVEL):
             steps = LARAVEL_STEPS.format(setup=SETUP_PHP)
+        elif ctx.has_framework_any({Framework.DJANGO, Framework.FASTAPI, Framework.FLASK}):
+            install = (
+                "pip install -r requirements.txt pytest"
+                if ctx.exists("requirements.txt")
+                else "pip install . pytest"
+            )
+            steps = PYTHON_STEPS.format(setup=SETUP_PYTHON, install=install)
+        elif ctx.has_framework(Framework.SPRING):
+            gradle = ctx.exists("build.gradle") or ctx.exists("build.gradle.kts")
+            steps = JAVA_STEPS.format(
+                setup=SETUP_JAVA,
+                tool="gradle" if gradle else "maven",
+                build="./gradlew build" if gradle else "mvn -B verify",
+            )
+        elif ctx.has_framework(Framework.ASPNET):
+            steps = DOTNET_STEPS.format(setup=SETUP_DOTNET)
         elif ctx.exists("package.json"):
             locked = ctx.exists("package-lock.json")
             steps = NODE_STEPS.format(

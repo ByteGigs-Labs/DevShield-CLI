@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -14,19 +15,36 @@ import yaml
 from devshield.core.git import tracked_files
 from devshield.core.models import DetectedFramework, Framework
 from devshield.core.parsers import (
+    ConfigEntry,
     EnvEntry,
     Instruction,
+    flatten_json,
+    flatten_yaml,
     json_line_map,
+    load_template,
     parse_dockerfile,
     parse_dotenv,
+    parse_hcl,
+    parse_module,
+    parse_pipfile,
+    parse_properties,
+    parse_pyproject,
+    parse_requirements_txt,
     yaml_line_map,
 )
+from devshield.core.parsers.hcl import HclBlock
 
 DEFAULT_EXCLUDES = frozenset(
     {
+        ".eggs",
         ".git",
+        ".gradle",
+        ".mypy_cache",
         ".next",
         ".nuxt",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".terraform",
         ".tox",
         ".venv",
         "__pycache__",
@@ -34,6 +52,8 @@ DEFAULT_EXCLUDES = frozenset(
         "coverage",
         "dist",
         "node_modules",
+        "obj",
+        "target",
         "vendor",
         "venv",
     }
@@ -43,6 +63,12 @@ DOCKERFILE_PATTERNS = ("Dockerfile", "Dockerfile.*", "*.Dockerfile")
 COMPOSE_PATTERNS = ("docker-compose*.yml", "docker-compose*.yaml", "compose.yml", "compose.yaml")
 WORKFLOW_PATTERNS = (".github/workflows/*.yml", ".github/workflows/*.yaml")
 SOURCE_PATTERNS = ("*.js", "*.jsx", "*.ts", "*.tsx", "*.mjs", "*.cjs")
+PYTHON_PATTERNS = ("*.py",)
+JAVA_PATTERNS = ("*.java", "*.kt")
+CSHARP_PATTERNS = ("*.cs",)
+LOCKFILE_NAMES = frozenset({"package-lock.json", "composer.lock", "yarn.lock", "pnpm-lock.yaml"})
+TEMPLATE_MAX_BYTES = 512 * 1024
+REQUIREMENTS_PATTERNS = ("requirements*.txt", "requirements/*.txt")
 EXAMPLE_SUFFIXES = (".example", ".sample", ".template", ".dist", ".defaults")
 TEST_DIRS = frozenset({"test", "tests", "__tests__", "spec", "e2e", "cypress", "fixtures"})
 
@@ -61,8 +87,14 @@ def _is_example(name: str) -> bool:
 
 def is_test_path(rel: str) -> bool:
     *directories, name = rel.split("/")
-    return bool(TEST_DIRS.intersection(directories)) or bool(
-        re.search(r"\.(?:test|spec)\.|_test\.|^test_", name)
+    return (
+        bool(TEST_DIRS.intersection(directories))
+        or bool(
+            re.search(
+                r"\.(?:test|spec)\.|_test\.|^test_|^conftest\.py$|Tests?\.(?:cs|java|kt)$", name
+            )
+        )
+        or any(d.endswith((".Tests", ".UnitTests", ".IntegrationTests")) for d in directories)
     )
 
 
@@ -82,6 +114,7 @@ class ProjectContext:
         self._resolved: dict[str, Path | None] = {}
         self._listed: frozenset[str] | None = None
         self._ignored: dict[str, bool] = {}
+        self._ast: dict[str, ast.Module | None] = {}
         self._line_maps: dict[str, dict[tuple[str | int, ...], int]] = {}
 
     @cached_property
@@ -201,6 +234,67 @@ class ProjectContext:
         return [f for f in self.match(*SOURCE_PATTERNS) if not is_test_path(f)]
 
     @cached_property
+    def python_files(self) -> list[str]:
+        return [f for f in self.match(*PYTHON_PATTERNS) if not is_test_path(f)]
+
+    @cached_property
+    def java_files(self) -> list[str]:
+        return [f for f in self.match(*JAVA_PATTERNS) if not is_test_path(f)]
+
+    @cached_property
+    def csharp_files(self) -> list[str]:
+        return [f for f in self.match(*CSHARP_PATTERNS) if not is_test_path(f)]
+
+    @cached_property
+    def python_dependencies(self) -> dict[str, str]:
+        found: dict[str, str] = {}
+        for file in self.match(*REQUIREMENTS_PATTERNS):
+            found.update(parse_requirements_txt(self.read_text(file) or ""))
+        for file in self.match("pyproject.toml"):
+            found.update(parse_pyproject(self.read_text(file) or ""))
+        for file in self.match("Pipfile"):
+            found.update(parse_pipfile(self.read_text(file) or ""))
+        return found
+
+    def pyast(self, rel: str) -> ast.Module | None:
+        if rel not in self._ast:
+            self._ast[rel] = parse_module(self.read_text(rel) or "")
+        return self._ast[rel]
+
+    @cached_property
+    def terraform_files(self) -> list[str]:
+        return self.match("*.tf")
+
+    def terraform(self, rel: str) -> list[HclBlock]:
+        return parse_hcl(self.read_text(rel) or "")
+
+    @cached_property
+    def cloudformation_files(self) -> list[str]:
+        workflows = set(self.workflow_files)
+        found: list[str] = []
+        for file in self.match("*.yml", "*.yaml", "*.json", "*.template"):
+            name = file.rsplit("/", 1)[-1]
+            if file in workflows or name in LOCKFILE_NAMES or self.size(file) > TEMPLATE_MAX_BYTES:
+                continue
+            text = self.read_text(file) or ""
+            if "AWS::" in text and "Resources" in text:
+                found.append(file)
+        return found
+
+    def template(self, rel: str) -> dict[str, Any] | None:
+        """A parsed CloudFormation template (YAML with tags, or JSON)."""
+        return load_template(self.read_text(rel) or "", is_json=rel.endswith(".json"))
+
+    def config_entries(self, rel: str) -> list[ConfigEntry]:
+        """Dotted key/value pairs of a .properties, YAML or JSON config file."""
+        text = self.read_text(rel) or ""
+        if rel.endswith(".properties"):
+            return parse_properties(text)
+        if rel.endswith((".yml", ".yaml")):
+            return flatten_yaml(text)
+        return flatten_json(text) if rel.endswith(".json") else []
+
+    @cached_property
     def tracked(self) -> frozenset[str] | None:
         return tracked_files(self.root)
 
@@ -261,6 +355,10 @@ class ProjectContext:
 
     def has_framework(self, framework: Framework) -> bool:
         return any(d.framework == framework for d in self.frameworks)
+
+    def has_framework_any(self, frameworks: Iterable[Framework]) -> bool:
+        wanted = set(frameworks)
+        return any(d.framework in wanted for d in self.frameworks)
 
 
 def _join(parent: str, name: str) -> str:

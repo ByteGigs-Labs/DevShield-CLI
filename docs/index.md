@@ -8,7 +8,8 @@ pipx install devshield-cli
 devshield scan
 ```
 
-- **55+ rules** for Laravel, Node, Express, React, Next.js, Docker and GitHub Actions
+- **75 rules** for Laravel, Node, Express, NestJS, React, Next.js, Django, FastAPI, Flask, Spring Boot,
+  ASP.NET Core, Terraform, CloudFormation, Docker and GitHub Actions
 - **Reports** as terminal, JSON, Markdown, HTML and SARIF for GitHub code scanning
 - **Safe auto-fix** that only edits files, so `git checkout` undoes it
 - **Dependency and image scanning** with OSV.dev and your local Docker

@@ -4,14 +4,27 @@ import re
 from collections.abc import Iterator
 
 from devshield.core.context import ProjectContext
-from devshield.core.models import Category, Finding, Severity
-from devshield.core.parsers import final_stage, parse_php_config
+from devshield.core.models import Category, Finding, Framework, Severity
+from devshield.core.parsers import final_stage, literal, module_assignments, parse_php_config
 from devshield.core.rule import Rule
+from devshield.core.search import search
 from devshield.rules._bases import is_deployed_env
+from devshield.rules._frameworks import django_settings
 
 TRUTHY = frozenset({"true", "1", "yes", "on"})
 LOCAL_ENV_FILES = (".env.local", ".env.development", ".env.test", ".env.testing")
-CONTAINER_DEBUG = re.compile(r"\b(?:APP_DEBUG\s*=\s*(?:true|1)|NODE_ENV\s*=\s*development)\b", re.I)
+CONTAINER_DEBUG = re.compile(
+    r"\b(?:(?:APP|FLASK|DJANGO)_DEBUG\s*=\s*(?:true|1)|NODE_ENV\s*=\s*development"
+    r"|FLASK_ENV\s*=\s*development|ASPNETCORE_ENVIRONMENT\s*=\s*Development)\b",
+    re.I,
+)
+DEBUG_KEYS = ("APP_DEBUG", "FLASK_DEBUG", "DJANGO_DEBUG")
+PYTHON_FRAMEWORKS = (Framework.DJANGO, Framework.FASTAPI, Framework.FLASK)
+FLASK_DEBUG = re.compile(
+    r"\.run\([^)]*\bdebug\s*=\s*True|\bapp\.debug\s*=\s*True"
+    r"|config\[['\"]DEBUG['\"]\]\s*=\s*True|\bFastAPI\([^)]*\bdebug\s*=\s*True"
+)
+DEVELOPER_PAGE = re.compile(r"\.UseDeveloperExceptionPage\(")
 MAX_LISTED_KEYS = 10
 
 
@@ -51,15 +64,18 @@ class DebugEnabled(Rule):
                 continue
             entries = {e.key: e for e in ctx.dotenv(file)}
             values = {key: entry.value for key, entry in entries.items()}
-            debug = entries.get("APP_DEBUG")
-            if debug and debug.value.lower() in TRUTHY and is_deployed_env(ctx, file, values):
-                production = "production" in file or values.get("APP_ENV") == "production"
-                yield self.finding(
-                    "APP_DEBUG is enabled" + (" in a production environment" if production else ""),
-                    file=file,
-                    line=debug.line,
-                    severity=Severity.CRITICAL if production else None,
-                )
+            keys = DEBUG_KEYS + (("DEBUG",) if ctx.has_framework_any(PYTHON_FRAMEWORKS) else ())
+            for key in keys:
+                debug = entries.get(key)
+                if debug and debug.value.lower() in TRUTHY and is_deployed_env(ctx, file, values):
+                    production = "production" in file or values.get("APP_ENV") == "production"
+                    yield self.finding(
+                        f"{key} is enabled"
+                        + (" in a production environment" if production else ""),
+                        file=file,
+                        line=debug.line,
+                        severity=Severity.CRITICAL if production else None,
+                    )
         parsed = parse_php_config(ctx.read_text("config/app.php") or "")
         if parsed and parsed[0].get("debug") is True:
             yield self.finding(
@@ -68,6 +84,7 @@ class DebugEnabled(Rule):
                 line=parsed[1].get(("debug",)),
                 fixable=False,
             )
+        yield from self._python_and_dotnet(ctx)
         for file in ctx.dockerfiles:
             for instruction in final_stage(ctx.dockerfile(file)):
                 if instruction.name == "ENV" and CONTAINER_DEBUG.search(instruction.args):
@@ -77,6 +94,31 @@ class DebugEnabled(Rule):
                         line=instruction.line,
                         fixable=False,
                     )
+
+    def _python_and_dotnet(self, ctx: ProjectContext) -> Iterator[Finding]:
+        for file in django_settings(ctx):
+            tree = ctx.pyast(file)
+            entry = (module_assignments(tree) if tree else {}).get("DEBUG")
+            if entry and literal(entry[0]) is True:
+                yield self.finding(
+                    "Django settings set DEBUG = True", file=file, line=entry[1], fixable=False
+                )
+        if ctx.has_framework_any(PYTHON_FRAMEWORKS):
+            for hit in search(ctx, ctx.python_files, FLASK_DEBUG):
+                yield self.finding(
+                    "The app is started in debug mode", file=hit.file, line=hit.line, fixable=False
+                )
+        for file in ctx.csharp_files:
+            text = ctx.read_text(file) or ""
+            if "IsDevelopment" in text or "IsEnvironment" in text:
+                continue
+            for hit in search(ctx, [file], DEVELOPER_PAGE):
+                yield self.finding(
+                    "The developer exception page is enabled in every environment",
+                    file=file,
+                    line=hit.line,
+                    fixable=False,
+                )
 
 
 class EnvExampleMissing(Rule):
