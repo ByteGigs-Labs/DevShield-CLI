@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)]()
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)]()
 [![Version](https://img.shields.io/badge/version-0.1.0-success.svg)]()
-[![CI](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![CI](https://github.com/ByteGigs-Labs/DevShield-CLI/actions/workflows/ci.yml/badge.svg)](https://github.com/ByteGigs-Labs/DevShield-CLI/actions/workflows/ci.yml)
 [![Code Style](https://img.shields.io/badge/code%20style-ruff-black.svg)]()
 
 </div>
@@ -97,11 +97,11 @@ pip install devshield-cli
 or
 
 ```bash
-git clone https://github.com/yourusername/devshield-cli
+git clone https://github.com/ByteGigs-Labs/DevShield-CLI
 
-cd devshield-cli
+cd DevShield-CLI
 
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 
@@ -307,8 +307,22 @@ auto_fix:
 
 # Rule Categories
 
-| Prefix | Category |
-|----------|------------------------|
+| Rules | Category |
+|----------------|------------------------|
+| SH001–SH099 | Security |
+| SH100–SH199 | Authentication |
+| SH200–SH299 | Secrets |
+| SH300–SH399 | Configuration |
+| PERF001–PERF099 | Performance |
+| PERF100–PERF199 | Docker |
+| PERF200–PERF299 | Frontend |
+| PERF300–PERF399 | Dependencies |
+| DX001–DX099 | Developer Experience |
+| DOC001–DOC099 | Documentation |
+
+See [docs/rule-ids.md](docs/rule-ids.md) for the numbering scheme.
+
+----------|------------------------|
 | SH001 | Security |
 | SH002 | Authentication |
 | SH003 | Secrets |
@@ -364,15 +378,13 @@ Create custom scanners using the plugin API.
 ```python
 from devshield import Rule
 
-class CustomRule(Rule):
 
+class CustomRule(Rule):
     id = "CUSTOM001"
 
     title = "Example Rule"
 
     severity = "medium"
 
-    def check(self):
-
-        ...
+    def check(self): ...
 ```

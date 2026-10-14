@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "devshield-cli"
+dynamic = ["version"]
+description = "Find security, performance and configuration problems in web projects from one command."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "ByteGigs Labs" }]
+keywords = ["security", "cli", "static-analysis", "devsecops", "linter"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "pathspec>=0.12",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-PyYAML",
+    "pre-commit>=3.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/ByteGigs-Labs/DevShield-CLI"
+Issues = "https://github.com/ByteGigs-Labs/DevShield-CLI/issues"
+
+[project.scripts]
+devshield = "devshield.cli.app:app"
+
+[tool.hatch.version]
+path = "devshield/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["devshield"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["devshield", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "PTH", "RUF", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["devshield"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.coverage.run]
+source = ["devshield"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
