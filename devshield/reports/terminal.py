@@ -7,12 +7,8 @@ from rich.rule import Rule as Divider
 from rich.text import Text
 
 from devshield.core.models import Finding, Framework, ScanResult, Severity
+from devshield.reports.sections import KNOWN_PREFIXES, OTHER, SECTIONS, prefix
 
-SECTIONS = (
-    ("Security", ("SH",)),
-    ("Performance", ("PERF",)),
-    ("Project Health", ("DX", "DOC")),
-)
 FRAMEWORK_LABELS = {
     Framework.LARAVEL: "Framework detected: Laravel",
     Framework.EXPRESS: "Framework detected: Express",
@@ -30,10 +26,6 @@ SEVERITY_STYLE = {
     Severity.INFO: ("i", "blue"),
 }
 BAND_STYLE = {"low": "green", "medium": "yellow", "high": "red", "critical": "bold red"}
-
-
-def _prefix(rule_id: str) -> str:
-    return rule_id.rstrip("0123456789")
 
 
 def _line(console: Console, *parts: tuple[str, str]) -> None:
@@ -71,8 +63,8 @@ def render_terminal(
 
     reported = {f.rule_id for f in result.findings}
     for name, prefixes in SECTIONS:
-        findings = [f for f in result.findings if _prefix(f.rule_id) in prefixes]
-        ran = [r for r in result.rules_run if _prefix(r) in prefixes]
+        findings = [f for f in result.findings if prefix(f.rule_id) in prefixes]
+        ran = [r for r in result.rules_run if prefix(r) in prefixes]
         if not findings and not ran:
             continue
         console.print(Divider(style="dim"))
@@ -90,14 +82,10 @@ def render_terminal(
                     (f"{rule_id} {titles.get(rule_id, '')} - not found", "dim"),
                 )
 
-    others = [
-        f
-        for f in result.findings
-        if _prefix(f.rule_id) not in {p for _, ps in SECTIONS for p in ps}
-    ]
+    others = [f for f in result.findings if prefix(f.rule_id) not in KNOWN_PREFIXES]
     if others:
         console.print(Divider(style="dim"))
-        _line(console, ("Other", "bold underline"))
+        _line(console, (OTHER, "bold underline"))
         console.print()
         for finding in others:
             _render_finding(console, finding, verbose)
@@ -113,8 +101,13 @@ def render_terminal(
     )
     if summary:
         _line(console, (f"{len(result.findings)} findings: {summary}", ""))
-        if result.suppressed:
-            _line(console, (f"{result.suppressed} suppressed by inline comments", "dim"))
+    for count, reason in (
+        (result.suppressed, "suppressed by inline comments"),
+        (result.baselined, "hidden by the baseline"),
+    ):
+        if count:
+            _line(console, (f"{count} {reason}", "dim"))
+    if summary or result.suppressed or result.baselined:
         console.print()
     _line(console, ("Risk Score", "bold"))
     console.print()

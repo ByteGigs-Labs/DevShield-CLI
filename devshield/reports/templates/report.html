@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevShield report: {{ project }}</title>
+<style>
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --text: #1b1f24; --muted: #5b6573; --line: #e1e5ea;
+  --critical: #b3261e; --high: #d9480f; --medium: #b7791f; --low: #2b6cb0; --info: #5b6573;
+  --low-risk: #1f7a3d; --medium-risk: #b7791f; --high-risk: #d9480f; --critical-risk: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101317; --card: #181c22; --text: #e6e9ee; --muted: #9aa4b2; --line: #2a303a;
+    --critical: #ff6b61; --high: #ff9a5c; --medium: #f0c05a; --low: #6cb1ff; --info: #9aa4b2;
+    --low-risk: #4cc77a; --medium-risk: #f0c05a; --high-risk: #ff9a5c; --critical-risk: #ff6b61;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { margin: 0; font-size: 22px; }
+h2 { margin: 32px 0 12px; font-size: 17px; }
+.muted { color: var(--muted); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.summary { display: grid; grid-template-columns: 220px 1fr; gap: 16px; margin-top: 16px; }
+.gauge { text-align: center; }
+.gauge svg { width: 180px; height: 100px; }
+.gauge .track { stroke: var(--line); }
+.gauge .value { stroke: var(--band); }
+.gauge .score { font-size: 30px; font-weight: 700; fill: var(--text); }
+.band-low { --band: var(--low-risk); } .band-medium { --band: var(--medium-risk); }
+.band-high { --band: var(--high-risk); } .band-critical { --band: var(--critical-risk); }
+.band-label { color: var(--band); font-weight: 600; }
+.tiles { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.tile { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px;
+  padding: 8px 14px; font: inherit; cursor: pointer; min-width: 92px; text-align: left; }
+.tile[aria-pressed="true"] { outline: 2px solid var(--text); }
+.tile b { display: block; font-size: 22px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 8px; }
+.controls input, .controls select { background: var(--card); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font: inherit; }
+.controls input { flex: 1; min-width: 200px; }
+table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  color: #fff; background: var(--c); }
+.sev-critical { --c: var(--critical); } .sev-high { --c: var(--high); } .sev-medium { --c: var(--medium); }
+.sev-low { --c: var(--low); } .sev-info { --c: var(--info); }
+code { font: 13px ui-monospace, monospace; word-break: break-all; }
+details summary { cursor: pointer; }
+details p { margin: 8px 0 0; }
+.section-row td { background: var(--bg); font-weight: 600; }
+.empty { padding: 24px; text-align: center; }
+[hidden] { display: none !important; }
+@media (max-width: 720px) { .summary { grid-template-columns: 1fr; } th:nth-child(3), td:nth-child(3) { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>DevShield report</h1>
+    <div class="muted">{{ project }} · DevShield {{ version }} · {{ generated }}</div>
+    {% if frameworks %}<div class="muted">Detected: {{ frameworks | join(", ") }}</div>{% endif %}
+  </header>
+
+  <section class="summary" aria-label="Summary">
+    <div class="card gauge band-{{ band }}">
+      <svg viewBox="0 0 120 70" role="img" aria-label="Risk score {{ score }} out of 100">
+        <path class="track" d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke-width="10" stroke-linecap="round"/>
+        <path class="value" d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="{{ dash }} 157.08"/>
+        <text class="score" x="60" y="56" text-anchor="middle">{{ score }}</text>
+      </svg>
+      <div class="band-label">{{ band_label }}</div>
+      <div class="muted">Risk score / 100</div>
+    </div>
+    <div class="card">
+      <div class="tiles" id="tiles">
+        {% for severity, count in counts %}
+        <button class="tile" type="button" data-severity="{{ severity }}" aria-pressed="false">
+          <b>{{ count }}</b>{{ severity }}
+        </button>
+        {% endfor %}
+      </div>
+      <p class="muted">
+        {{ total }} finding{{ "" if total == 1 else "s" }}
+        {%- if suppressed %} · {{ suppressed }} suppressed by inline comments{% endif %}
+        {%- if baselined %} · {{ baselined }} hidden by the baseline{% endif %}
+      </p>
+    </div>
+  </section>
+
+  {% if total %}
+  <h2>Findings</h2>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Search rule, file or message" aria-label="Search findings">
+    <select id="section" aria-label="Filter by category">
+      <option value="">All categories</option>
+      {% for section in sections %}<option>{{ section.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <table id="findings">
+    <thead><tr><th>Severity</th><th>Rule</th><th>Location</th><th>Details</th></tr></thead>
+    <tbody>
+    {% for section in sections %}
+      <tr class="section-row" data-section="{{ section.name }}"><td colspan="4">{{ section.name }} ({{ section.rows | length }})</td></tr>
+      {% for row in section.rows %}
+      <tr class="finding" data-severity="{{ row.severity }}" data-section="{{ section.name }}" data-text="{{ row.text }}">
+        <td><span class="badge sev-{{ row.severity }}">{{ row.severity }}</span></td>
+        <td><strong>{{ row.rule_id }}</strong><br>{{ row.title }}</td>
+        <td>{% if row.location %}<code>{{ row.location }}</code>{% endif %}</td>
+        <td>
+          <details>
+            <summary>{{ row.message }}</summary>
+            {% if row.description %}<p><strong>Why it matters.</strong> {{ row.description }}</p>{% endif %}
+            {% if row.remediation %}<p><strong>How to fix.</strong> {{ row.remediation }}</p>{% endif %}
+          </details>
+        </td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="empty muted" id="no-match" hidden>No findings match the current filters.</p>
+  {% else %}
+  <p class="card empty">No issues found.</p>
+  {% endif %}
+
+  {% if errors or warnings %}
+  <h2>Problems running DevShield</h2>
+  <ul>
+    {% for error in errors %}<li>Rule {{ error.rule_id }} failed: {{ error.message }}</li>{% endfor %}
+    {% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</main>
+<script>
+(function () {
+  var rows = Array.prototype.slice.call(document.querySelectorAll("tr.finding"));
+  if (!rows.length) return;
+  var sectionRows = Array.prototype.slice.call(document.querySelectorAll("tr.section-row"));
+  var search = document.getElementById("search");
+  var section = document.getElementById("section");
+  var tiles = Array.prototype.slice.call(document.querySelectorAll(".tile"));
+  var active = {};
+  function apply() {
+    var query = search.value.toLowerCase();
+    var visible = {};
+    var shown = 0;
+    rows.forEach(function (row) {
+      var match = (!section.value || row.dataset.section === section.value) &&
+        (!Object.keys(active).length || active[row.dataset.severity]) &&
+        (!query || row.dataset.text.indexOf(query) !== -1);
+      row.hidden = !match;
+      if (match) { visible[row.dataset.section] = true; shown++; }
+    });
+    sectionRows.forEach(function (row) { row.hidden = !visible[row.dataset.section]; });
+    document.getElementById("no-match").hidden = shown > 0;
+  }
+  tiles.forEach(function (tile) {
+    tile.addEventListener("click", function () {
+      var severity = tile.dataset.severity;
+      if (active[severity]) { delete active[severity]; } else { active[severity] = true; }
+      tile.setAttribute("aria-pressed", active[severity] ? "true" : "false");
+      apply();
+    });
+  });
+  search.addEventListener("input", apply);
+  section.addEventListener("change", apply);
+})();
+</script>
+</body>
+</html>

@@ -17,7 +17,7 @@ from tests.rules.helpers import REGISTRY
 FIXTURES = Path(__file__).parent / "fixtures"
 SNAPSHOTS = Path(__file__).parent / "snapshots"
 NAMES = sorted(p.name for p in FIXTURES.iterdir() if p.is_dir())
-VOLATILE = ("root", "duration_seconds", "rule_timings", "devshield_version")
+VOLATILE = ("root", "duration_seconds", "rule_timings", "devshield_version", "generated_at")
 
 
 def check_snapshot(name: str, actual: str) -> None:

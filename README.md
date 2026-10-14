@@ -235,7 +235,6 @@ Every rule has a page under [docs/rules](docs/rules/README.md). Silence a rule i
 Planned
 
 ```bash
-devshield report     # HTML, Markdown and SARIF reports
 devshield fix        # apply safe fixes
 devshield deps       # known-vulnerability scan of dependencies
 devshield docker scan
@@ -245,21 +244,42 @@ devshield update
 
 # Reports
 
-DevShield can generate reports in multiple formats.
+DevShield writes reports in several formats, and more than one in a single run.
 
-Supported formats
-
-- Terminal
-- JSON
-- HTML
-- SARIF (GitHub Security)
-- Markdown
-
-Example
+| Format | Flag | Notes |
+|---|---|---|
+| Terminal | (default for `scan`) | Colored, grouped by category |
+| JSON | `--json` | Stable, versioned. Schema: [docs/schema](docs/schema/scan-result.schema.json) |
+| HTML | `--html` | One self-contained file: risk gauge, filters and search, no external requests |
+| Markdown | `--md` | Collapsible sections, suited to pull request comments |
+| SARIF 2.1.0 | `--sarif` | For GitHub code scanning |
 
 ```bash
-devshield report --html report.html
+devshield report --html report.html --md report.md --sarif devshield.sarif --json report.json
+devshield report --json -          # print to stdout
+devshield report                   # HTML, or the format set in devshield.yml
 ```
+
+`report` accepts the same filters as `scan` and exits with the same codes.
+
+# Baselines
+
+Adopting DevShield on an existing project? Record today's findings once, then only fail on
+new ones.
+
+```bash
+devshield baseline                                  # writes devshield-baseline.json
+devshield scan --baseline devshield-baseline.json   # reports and fails on new findings only
+```
+
+or set it once in `devshield.yml`:
+
+```yaml
+baseline: devshield-baseline.json
+```
+
+Findings are matched by rule, file and message, not by line number, so moving code does not
+resurface old findings. Commit the baseline file and regenerate it when you fix things.
 
 
 # GitHub Actions
@@ -287,6 +307,16 @@ jobs:
       - run: pip install devshield-cli
 
       - run: devshield scan
+```
+
+Upload findings to GitHub code scanning:
+
+```yaml
+      - run: devshield report --sarif devshield.sarif --fail-on critical
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: devshield.sarif
 ```
 
 

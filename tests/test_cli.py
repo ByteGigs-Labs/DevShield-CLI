@@ -111,3 +111,81 @@ def test_rules_list_and_show() -> None:
     shown = runner.invoke(app, ["rules", "show", "sh001"])
     assert shown.exit_code == 0 and "Debug mode enabled" in shown.output and "Fix:" in shown.output
     assert runner.invoke(app, ["rules", "show", "NOPE001"]).exit_code == 2
+
+
+def test_report_writes_several_formats_in_one_run(tmp_path: Path, insecure: str) -> None:
+    out = tmp_path / "out"
+    result = runner.invoke(
+        app,
+        [
+            "report", insecure,
+            "--html", str(out / "r.html"),
+            "--md", str(out / "r.md"),
+            "--sarif", str(out / "r.sarif"),
+            "--json", str(out / "r.json"),
+        ],
+    )  # fmt: skip
+    assert result.exit_code == 1
+    assert "<!doctype html>" in (out / "r.html").read_text()
+    assert (out / "r.md").read_text().startswith("# DevShield report")
+    assert json.loads((out / "r.sarif").read_text())["version"] == "2.1.0"
+    assert json.loads((out / "r.json").read_text())["schema_version"] == 1
+    assert result.output.count("Wrote ") == 4
+
+
+def test_report_prints_to_stdout_with_dash_and_respects_quiet(insecure: str) -> None:
+    result = runner.invoke(app, ["report", insecure, "--json", "-", "-q"])
+    assert json.loads(result.output)["findings"]
+
+
+def test_report_defaults_to_html_in_the_current_directory(
+    clean: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(app, ["report", clean]).exit_code == 0
+    assert (tmp_path / "devshield-report.html").exists()
+
+
+def test_report_uses_the_configured_format(
+    make_project: MakeProject, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = make_project({"devshield.yml": "report:\n  format: markdown\n"})
+    out = tmp_path / "out"
+    out.mkdir()
+    monkeypatch.chdir(out)
+    runner.invoke(app, ["report", str(root)])
+    assert (out / "devshield-report.md").exists()
+
+
+def test_baseline_workflow(make_project: MakeProject, tmp_path: Path) -> None:
+    root = make_project({"package.json": "{}"})
+    baseline = tmp_path / "baseline.json"
+    assert runner.invoke(app, ["scan", str(root), "-q", "--fail-on", "low"]).exit_code == 1
+    written = runner.invoke(app, ["baseline", str(root), "-o", str(baseline)])
+    assert written.exit_code == 0 and "findings" in written.output
+    hidden = runner.invoke(
+        app, ["scan", str(root), "--baseline", str(baseline), "--fail-on", "low", "--no-color"]
+    )
+    assert hidden.exit_code == 0 and "hidden by the baseline" in hidden.output
+    (root / "Dockerfile").write_text("FROM node:latest\n")
+    regression = runner.invoke(
+        app, ["scan", str(root), "--baseline", str(baseline), "--fail-on", "medium", "--json"]
+    )
+    assert regression.exit_code == 1
+    assert {f["rule_id"] for f in json.loads(regression.output)["findings"]} >= {"PERF101"}
+
+
+def test_baseline_can_be_set_in_the_config(make_project: MakeProject, tmp_path: Path) -> None:
+    root = make_project({"package.json": "{}"})
+    runner.invoke(app, ["baseline", str(root), "-o", str(root / "known.json")])
+    (root / "devshield.yml").write_text("baseline: known.json\nseverity:\n  fail_on: low\n")
+    assert runner.invoke(app, ["scan", str(root), "-q"]).exit_code == 0
+    (root / "devshield.yml").write_text("baseline: missing.json\n")
+    result = runner.invoke(app, ["scan", str(root)])
+    assert result.exit_code == 2 and "cannot read baseline" in result.output
+
+
+def test_invalid_baseline_exits_two(make_project: MakeProject) -> None:
+    root = make_project({"bad.json": "nope"})
+    result = runner.invoke(app, ["scan", str(root), "--baseline", str(root / "bad.json")])
+    assert result.exit_code == 2

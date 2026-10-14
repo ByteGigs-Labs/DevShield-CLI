@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -8,11 +9,18 @@ from rich.console import Console
 from rich.table import Table
 
 from devshield import __version__
-from devshield.core.config import CONFIG_NAMES, STARTER_CONFIG, ConfigError, load_config
-from devshield.core.models import Severity
-from devshield.core.registry import default_registry
+from devshield.core.baseline import BaselineError, load_baseline, render_baseline
+from devshield.core.config import (
+    CONFIG_NAMES,
+    STARTER_CONFIG,
+    Config,
+    ConfigError,
+    load_config,
+)
+from devshield.core.models import ScanResult, Severity
+from devshield.core.registry import RuleRegistry, default_registry
 from devshield.core.runner import ScanOptions, run_scan
-from devshield.reports.json_report import render_json
+from devshield.reports.formats import FORMATS
 from devshield.reports.terminal import render_terminal
 
 EXIT_FINDINGS = 1
@@ -46,6 +54,9 @@ FailOnOpt = Annotated[
 HistoryOpt = Annotated[
     bool, typer.Option("--history", help="Also scan recent git history for secrets.")
 ]
+BaselineOpt = Annotated[
+    Path | None, typer.Option("--baseline", help="Only report findings not in this baseline.")
+]
 NoColorOpt = Annotated[bool, typer.Option("--no-color", help="Disable colors.")]
 VerboseOpt = Annotated[bool, typer.Option("--verbose", "-v", help="Show fixes and passed rules.")]
 QuietOpt = Annotated[bool, typer.Option("--quiet", "-q", help="Print nothing; use the exit code.")]
@@ -78,6 +89,52 @@ def _fail(message: str, code: int) -> typer.Exit:
     return typer.Exit(code)
 
 
+@dataclass(frozen=True)
+class Scan:
+    result: ScanResult
+    config: Config
+    registry: RuleRegistry
+
+
+def _run(
+    path: Path,
+    config_path: Path | None,
+    only: tuple[str, ...] = (),
+    exclude_rule: tuple[str, ...] = (),
+    min_severity: Severity | None = None,
+    history: bool = False,
+    baseline_path: Path | None = None,
+    use_baseline: bool = True,
+) -> Scan:
+    if not path.is_dir():
+        raise _fail(f"{path} is not a directory", EXIT_USAGE)
+    try:
+        config = load_config(path.resolve(), config_path)
+        configured = path / config.baseline if config.baseline else None
+        baseline_file = (baseline_path or configured) if use_baseline else None
+        baseline = load_baseline(baseline_file) if baseline_file else None
+    except (ConfigError, BaselineError) as exc:
+        raise _fail(str(exc), EXIT_USAGE) from exc
+    registry = default_registry()
+    options = ScanOptions(
+        only=only,
+        exclude_rules=exclude_rule,
+        min_severity=min_severity,
+        history=history,
+        baseline=baseline,
+    )
+    try:
+        return Scan(run_scan(path, config, registry, options), config, registry)
+    except Exception as exc:
+        raise _fail(f"Internal error: {type(exc).__name__}: {exc}", EXIT_INTERNAL) from exc
+
+
+def _finish(scan: Scan, fail_on: Severity | None) -> None:
+    threshold = fail_on or scan.config.severity.fail_on
+    if any(finding.severity >= threshold for finding in scan.result.findings):
+        raise typer.Exit(EXIT_FINDINGS)
+
+
 def _execute(
     path: Path,
     config_path: Path | None,
@@ -88,38 +145,22 @@ def _execute(
     min_severity: Severity | None,
     fail_on: Severity | None,
     history: bool,
+    baseline: Path | None,
     no_color: bool,
     verbose: bool,
     quiet: bool,
 ) -> None:
-    if not path.is_dir():
-        raise _fail(f"{path} is not a directory", EXIT_USAGE)
-    try:
-        config = load_config(path.resolve(), config_path)
-    except ConfigError as exc:
-        raise _fail(str(exc), EXIT_USAGE) from exc
-    registry = default_registry()
-    options = ScanOptions(
-        only=only, exclude_rules=exclude_rule, min_severity=min_severity, history=history
-    )
-    try:
-        result = run_scan(path, config, registry, options)
-    except Exception as exc:
-        raise _fail(f"Internal error: {type(exc).__name__}: {exc}", EXIT_INTERNAL) from exc
-
+    scan = _run(path, config_path, only, exclude_rule, min_severity, history, baseline)
     if json_output or output:
-        document = render_json(result)
+        document = FORMATS["json"].render(scan.result, scan.registry)
         if output:
             output.write_text(document, encoding="utf-8")
         else:
             typer.echo(document, nl=False)
     elif not quiet:
-        titles = {rule.id: rule.title for rule in registry.all()}
-        render_terminal(result, Console(no_color=no_color), titles, verbose)
-
-    threshold = fail_on or config.severity.fail_on
-    if any(finding.severity >= threshold for finding in result.findings):
-        raise typer.Exit(EXIT_FINDINGS)
+        titles = {rule.id: rule.title for rule in scan.registry.all()}
+        render_terminal(scan.result, Console(no_color=no_color), titles, verbose)
+    _finish(scan, fail_on)
 
 
 @app.command()
@@ -133,6 +174,7 @@ def scan(
     min_severity: MinSeverityOpt = None,
     fail_on: FailOnOpt = None,
     history: HistoryOpt = False,
+    baseline: BaselineOpt = None,
     no_color: NoColorOpt = False,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
@@ -148,6 +190,7 @@ def scan(
         min_severity,
         fail_on,
         history,
+        baseline,
         no_color,
         verbose,
         quiet,
@@ -176,10 +219,72 @@ def env(
         None,
         fail_on,
         False,
+        None,
         no_color,
         verbose,
         quiet,
     )
+
+
+@app.command()
+def report(
+    path: PathArg = Path(),
+    config: ConfigOpt = None,
+    json_path: Annotated[Path | None, typer.Option("--json", help="Write JSON here.")] = None,
+    md_path: Annotated[Path | None, typer.Option("--md", help="Write Markdown here.")] = None,
+    html_path: Annotated[Path | None, typer.Option("--html", help="Write HTML here.")] = None,
+    sarif_path: Annotated[Path | None, typer.Option("--sarif", help="Write SARIF here.")] = None,
+    only: OnlyOpt = None,
+    exclude_rule: ExcludeOpt = None,
+    min_severity: MinSeverityOpt = None,
+    fail_on: FailOnOpt = None,
+    history: HistoryOpt = False,
+    baseline: BaselineOpt = None,
+    quiet: QuietOpt = False,
+) -> None:
+    """Write HTML, Markdown, SARIF and JSON reports. Use - to print to stdout."""
+    scan = _run(path, config, _split(only), _split(exclude_rule), min_severity, history, baseline)
+    chosen: dict[str, Path] = {
+        name: target
+        for name, target in (
+            ("json", json_path),
+            ("markdown", md_path),
+            ("html", html_path),
+            ("sarif", sarif_path),
+        )
+        if target is not None
+    }
+    if not chosen:
+        default = scan.config.report.format
+        fallback = "html" if default == "terminal" else default
+        chosen = {fallback: Path(f"devshield-report.{FORMATS[fallback].extension}")}
+    for name, target in chosen.items():
+        document = FORMATS[name].render(scan.result, scan.registry)
+        if str(target) == "-":
+            typer.echo(document, nl=False)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(document, encoding="utf-8")
+        if not quiet:
+            typer.echo(f"Wrote {target}", err=True)
+    _finish(scan, fail_on)
+
+
+@app.command()
+def baseline(
+    path: PathArg = Path(),
+    config: ConfigOpt = None,
+    output: Annotated[Path, typer.Option("--output", "-o", help="Baseline file to write.")] = Path(
+        "devshield-baseline.json"
+    ),
+    only: OnlyOpt = None,
+    exclude_rule: ExcludeOpt = None,
+    history: HistoryOpt = False,
+) -> None:
+    """Record today's findings so later scans only report new ones."""
+    scan = _run(path, config, _split(only), _split(exclude_rule), None, history, use_baseline=False)
+    output.write_text(render_baseline(scan.result), encoding="utf-8")
+    typer.echo(f"Wrote {output} with {len(scan.result.findings)} findings")
 
 
 @app.command()

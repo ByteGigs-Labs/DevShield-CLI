@@ -5,6 +5,7 @@ from pathlib import Path
 from time import perf_counter
 
 from devshield import __version__
+from devshield.core.baseline import Baseline
 from devshield.core.config import Config, load_config
 from devshield.core.context import ProjectContext, build_spec
 from devshield.core.models import Finding, RuleError, ScanResult, Severity
@@ -20,6 +21,7 @@ class ScanOptions:
     exclude_rules: tuple[str, ...] = ()
     min_severity: Severity | None = None
     history: bool = False
+    baseline: Baseline | None = None
 
 
 def _matches(rule_id: str, selectors: tuple[str, ...]) -> bool:
@@ -83,6 +85,10 @@ def run_scan(
         if f.severity >= minimum and not (f.location and ignored_paths.match_file(f.location.file))
     ]
     findings = [f for f in candidates if not is_suppressed(ctx, f)]
+    suppressed = len(candidates) - len(findings)
+    baselined = 0
+    if options.baseline is not None:
+        findings, baselined = options.baseline.filter_new(findings)
     score, band = compute_score(findings)
 
     return ScanResult(
@@ -93,7 +99,8 @@ def run_scan(
         errors=tuple(errors),
         warnings=tuple(registry.load_errors),
         rules_run=tuple(rules_run),
-        suppressed=len(candidates) - len(findings),
+        suppressed=suppressed,
+        baselined=baselined,
         score=score,
         band=band,
         duration_seconds=perf_counter() - started,

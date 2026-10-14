@@ -1,0 +1,304 @@
+{
+  "$defs": {
+    "Category": {
+      "enum": [
+        "security",
+        "authentication",
+        "secrets",
+        "configuration",
+        "performance",
+        "docker",
+        "frontend",
+        "dependencies",
+        "developer_experience",
+        "documentation"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "Confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "DetectedFramework": {
+      "properties": {
+        "framework": {
+          "$ref": "#/$defs/Framework"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "framework",
+        "confidence"
+      ],
+      "title": "DetectedFramework",
+      "type": "object"
+    },
+    "Finding": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "category": {
+          "$ref": "#/$defs/Category"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Location"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "remediation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remediation"
+        },
+        "fixable": {
+          "default": false,
+          "title": "Fixable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rule_id",
+        "title",
+        "severity",
+        "category",
+        "message"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Framework": {
+      "enum": [
+        "laravel",
+        "node",
+        "express",
+        "react",
+        "nextjs",
+        "docker",
+        "github_actions"
+      ],
+      "title": "Framework",
+      "type": "string"
+    },
+    "Location": {
+      "properties": {
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "column": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "RiskBand": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "RiskBand",
+      "type": "string"
+    },
+    "RuleError": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "message"
+      ],
+      "title": "RuleError",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "devshield_version": {
+      "title": "Devshield Version",
+      "type": "string"
+    },
+    "root": {
+      "title": "Root",
+      "type": "string"
+    },
+    "frameworks": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DetectedFramework"
+      },
+      "title": "Frameworks",
+      "type": "array"
+    },
+    "findings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "errors": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RuleError"
+      },
+      "title": "Errors",
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "rules_run": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Rules Run",
+      "type": "array"
+    },
+    "suppressed": {
+      "default": 0,
+      "title": "Suppressed",
+      "type": "integer"
+    },
+    "baselined": {
+      "default": 0,
+      "title": "Baselined",
+      "type": "integer"
+    },
+    "score": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Score",
+      "type": "integer"
+    },
+    "band": {
+      "$ref": "#/$defs/RiskBand"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "duration_seconds": {
+      "default": 0.0,
+      "title": "Duration Seconds",
+      "type": "number"
+    },
+    "rule_timings": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Rule Timings",
+      "type": "object"
+    }
+  },
+  "required": [
+    "devshield_version",
+    "root",
+    "score",
+    "band"
+  ],
+  "title": "ScanResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ByteGigs-Labs/DevShield-CLI/blob/main/docs/schema/scan-result.schema.json"
+}

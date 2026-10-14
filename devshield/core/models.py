@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import operator
 from collections.abc import Callable
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -136,8 +137,10 @@ class ScanResult(_Model):
     warnings: tuple[str, ...] = ()
     rules_run: tuple[str, ...] = ()
     suppressed: int = 0
+    baselined: int = 0
     score: int = Field(ge=0, le=100)
     band: RiskBand
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     duration_seconds: float = 0.0
     rule_timings: dict[str, float] = Field(default_factory=dict)
 

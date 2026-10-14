@@ -49,6 +49,7 @@ class AutoFixConfig(_Section):
 
 class Config(_Section):
     ignore: list[str] = []
+    baseline: str | None = None
     exclude: list[str] = []
     severity: SeverityConfig = SeverityConfig()
     report: ReportConfig = ReportConfig()

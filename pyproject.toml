@@ -39,6 +39,8 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "types-PyYAML",
+    "jsonschema>=4.22",
+    "types-jsonschema",
     "pre-commit>=3.7",
 ]
 

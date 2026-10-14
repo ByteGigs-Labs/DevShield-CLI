@@ -334,6 +334,7 @@
     "SH302"
   ],
   "suppressed": 0,
+  "baselined": 0,
   "score": 8,
   "band": "critical"
 }
