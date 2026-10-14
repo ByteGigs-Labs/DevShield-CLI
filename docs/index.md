@@ -15,4 +15,22 @@ devshield scan
 - **Baselines** to adopt it on an existing project without a wall of findings
 - **Plugins** so you can add your own rules
 
+## What it looks like
+
+![devshield scan output](images/scan.svg)
+
+The HTML report is a single self-contained file with a risk gauge, search and category filters:
+
+![The HTML report](images/html-report.png)
+
+`devshield fix` previews exactly what it would change before it touches anything:
+
+![devshield fix](images/fix.svg)
+
+`devshield deps` and `devshield docker scan` cover dependencies and local images:
+
+![devshield deps](images/deps.svg)
+
+![devshield docker scan](images/docker-scan.svg)
+
 Start with [Getting started](getting-started.md).

@@ -22,7 +22,8 @@ All notable changes to this project are documented here. The format follows
 - Plugin system: rules from third-party packages through the `devshield.rules` entry point,
   `devshield plugins list`, failure isolation, `devshield.testing.run_rule` and a plugin guide.
 - An example plugin in `examples/devshield-plugin-example`.
-- Documentation site, pre-commit hooks, a Docker image and a GitHub Action template.
+- Documentation site with screenshots, pre-commit hooks, a Docker image, a GitHub Action and
+  release automation (`Prepare release` workflow, PyPI publishing, action repository sync).
 
 ### Changed
 

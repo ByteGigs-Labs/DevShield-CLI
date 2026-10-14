@@ -1,0 +1,46 @@
+name: Sync action
+
+# Publishes packaging/devshield-action to the ByteGigs-Labs/devshield-action repository.
+# It needs a secret named ACTION_REPO_TOKEN (a personal access token with the repo scope).
+# Without the secret this workflow does nothing, and the action still works from this
+# repository as ByteGigs-Labs/DevShield-CLI/packaging/devshield-action@main.
+on:
+  push:
+    branches: [main]
+    paths: ["packaging/devshield-action/**", ".github/workflows/sync-action.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ACTION_REPO_TOKEN }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Sync
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::ACTION_REPO_TOKEN is not set, skipping the action repository sync"
+            exit 0
+          fi
+          target="$OWNER/devshield-action"
+          gh repo view "$target" > /dev/null 2>&1 \
+            || gh repo create "$target" --public --description "GitHub Action for DevShield"
+          gh auth setup-git
+          git clone "https://github.com/$target.git" out
+          cp packaging/devshield-action/action.yml packaging/devshield-action/README.md out/
+          cd out
+          git checkout -B main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Already up to date"
+          else
+            git commit -m "Sync from DevShield-CLI $GITHUB_SHA"
+            git push origin main
+          fi

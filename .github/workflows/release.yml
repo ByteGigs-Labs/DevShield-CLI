@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Started by the prepare-release workflow, whose tag push cannot trigger this one itself.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -44,7 +46,10 @@ jobs:
         with:
           name: dist
           path: dist/
+      # With no PYPI_API_TOKEN secret this uses trusted publishing (OIDC).
       - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
   github-release:
     needs: pypi
@@ -98,3 +103,27 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  action-tag:
+    needs: github-release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ACTION_REPO_TOKEN }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - name: Move the major tag of the action repository
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::ACTION_REPO_TOKEN is not set, skipping the action tags"
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          major="v${version%%.*}"
+          gh auth setup-git
+          git clone "https://github.com/$OWNER/devshield-action.git" out
+          cd out
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$GITHUB_REF_NAME"
+          git tag -f "$major"
+          git push -f origin "$GITHUB_REF_NAME" "$major"
