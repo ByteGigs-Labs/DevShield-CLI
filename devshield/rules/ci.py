@@ -69,6 +69,7 @@ class WorkflowPermissions(Rule):
         "repository, which a compromised step can abuse."
     )
     remediation = "Add `permissions: contents: read` at the top and grant more per job only."
+    fixable = True
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file, document in _workflows(ctx):

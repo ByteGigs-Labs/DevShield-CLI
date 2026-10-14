@@ -70,7 +70,7 @@
       "message": "No CI configuration found",
       "location": null,
       "remediation": "Add a pipeline (for example GitHub Actions) that runs tests and `devshield scan`.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "PERF201",

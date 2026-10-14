@@ -235,12 +235,45 @@ Every rule has a page under [docs/rules](docs/rules/README.md). Silence a rule i
 Planned
 
 ```bash
-devshield fix        # apply safe fixes
 devshield deps       # known-vulnerability scan of dependencies
 devshield docker scan
 devshield update
 ```
 
+
+# Auto-fix
+
+`devshield fix` applies the fixes that are safe to automate. A fix is always a plain file edit or
+a new file, never a command, so `git checkout` and `git clean` undo it.
+
+```bash
+devshield fix                # shows a diff; without a terminal this never writes
+devshield fix --dry-run      # diff only
+devshield fix --yes          # apply, then re-scan to confirm the findings are gone
+devshield fix --only SH301   # limit to some rules
+```
+
+Applying refuses when the Git tree has uncommitted changes (or the project is not a Git
+repository) unless you pass `--force`. Running it twice changes nothing the second time.
+
+| Rule | Fix |
+|------|-----|
+| SH202 | Add the file to `.gitignore` (a file git already tracks needs `git rm --cached`) |
+| SH001 | Set `APP_DEBUG=false` in the env file |
+| SH301 | Create `.env.example` from the keys in `.env`, without values, or add the missing keys |
+| PERF103 | Create `.dockerignore` from a framework template |
+| PERF102 | Add `USER node` to Dockerfiles based on the official `node` image |
+| DX003 | Add `permissions: contents: read` to workflows that do not need write access |
+| DX002 | Create a starter `.github/workflows/ci.yml` with pinned actions |
+
+Turn fixes off globally or per rule in `devshield.yml`:
+
+```yaml
+auto_fix:
+  enabled: true
+  rules:
+    DX002: false
+```
 
 # Reports
 

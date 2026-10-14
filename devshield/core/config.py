@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from devshield.core.models import Severity
 from devshield.core.rule import RULE_ID_PATTERN
@@ -22,7 +22,9 @@ exclude: []
 report:
   format: terminal
 auto_fix:
-  enabled: false
+  enabled: true
+  # Override single rules, for example: {DX002: false}
+  rules: {}
 """
 
 
@@ -44,7 +46,16 @@ class ReportConfig(_Section):
 
 
 class AutoFixConfig(_Section):
-    enabled: bool = False
+    enabled: bool = True
+    rules: dict[str, bool] = {}
+
+    @field_validator("rules")
+    @classmethod
+    def _rule_ids(cls, value: dict[str, bool]) -> dict[str, bool]:
+        invalid = [key for key in value if not RULE_ID_PATTERN.match(key.upper())]
+        if invalid:
+            raise ValueError(f"not rule ids: {', '.join(invalid)}")
+        return {key.upper(): enabled for key, enabled in value.items()}
 
 
 class Config(_Section):

@@ -104,6 +104,7 @@ class RunsAsRoot(Rule):
         "control of the container and makes escapes easier."
     )
     remediation = "Create an unprivileged user and switch to it with a USER instruction."
+    fixable = True
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in _production_dockerfiles(ctx):
@@ -131,6 +132,7 @@ class MissingDockerignore(Rule):
         "sent to the build and can end up inside the image."
     )
     remediation = "Add a .dockerignore listing .git, node_modules, .env and build output."
+    fixable = True
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in ctx.dockerfiles:

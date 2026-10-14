@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -20,6 +21,7 @@ from devshield.core.config import (
 from devshield.core.models import ScanResult, Severity
 from devshield.core.registry import RuleRegistry, default_registry
 from devshield.core.runner import ScanOptions, run_scan
+from devshield.fixers import apply_plan, git_state, plan_fixes, render_diff
 from devshield.reports.formats import FORMATS
 from devshield.reports.terminal import render_terminal
 
@@ -285,6 +287,64 @@ def baseline(
     scan = _run(path, config, _split(only), _split(exclude_rule), None, history, use_baseline=False)
     output.write_text(render_baseline(scan.result), encoding="utf-8")
     typer.echo(f"Wrote {output} with {len(scan.result.findings)} findings")
+
+
+@app.command()
+def fix(
+    path: PathArg = Path(),
+    config: ConfigOpt = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Show a diff and change nothing (default without a TTY)."),
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Apply the fixes without asking.")
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Apply even when the Git tree is dirty or not a repository."),
+    ] = False,
+    only: OnlyOpt = None,
+) -> None:
+    """Apply safe fixes. Every fix is a plain file edit, so `git checkout` undoes it."""
+    scan = _run(path, config, _split(only), use_baseline=False)
+    plan = plan_fixes(path.resolve(), scan.result, scan.config.auto_fix, _split(only))
+    for skipped in plan.skipped:
+        where = f" ({skipped.file})" if skipped.file else ""
+        typer.echo(f"Skipped {skipped.rule_id}{where}: {skipped.reason}", err=True)
+    if plan.empty:
+        typer.echo("Nothing to fix.")
+        return
+    typer.echo(render_diff(plan.changes), nl=False)
+    summary = ", ".join(f"{fix.rule_id}: {fix.description}" for fix in plan.fixes)
+    typer.echo(f"\n{len(plan.changes)} file(s) would change. {summary}", err=True)
+
+    interactive = sys.stdin.isatty()
+    if dry_run or (not yes and not interactive):
+        typer.echo("Dry run: re-run with --yes to apply.", err=True)
+        return
+    state = git_state(path.resolve())
+    if state != "clean" and not force:
+        reason = "has uncommitted changes" if state == "dirty" else "is not a Git repository"
+        raise _fail(
+            f"Refusing to apply fixes: the project {reason}, so they could not be undone "
+            "cleanly. Commit or stash first, or pass --force.",
+            EXIT_USAGE,
+        )
+    if not yes and not typer.confirm("Apply these changes?"):
+        raise typer.Exit(EXIT_USAGE)
+    apply_plan(path.resolve(), plan)
+    typer.echo(f"Applied {len(plan.fixes)} fix(es) to {len(plan.changes)} file(s).", err=True)
+
+    fixed_rules = {f.rule_id for f in plan.fixes}
+    after = _run(path, config, _split(only), use_baseline=False)
+    remaining = [f for f in after.result.findings if f.rule_id in fixed_rules]
+    if remaining:
+        typer.echo("Still reported after fixing:", err=True)
+        for finding in remaining:
+            typer.echo(f"  {finding.rule_id} {finding.location or ''} {finding.message}", err=True)
+    else:
+        typer.echo("Re-scan: every fixed finding is gone.", err=True)
 
 
 @app.command()

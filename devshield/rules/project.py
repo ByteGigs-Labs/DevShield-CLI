@@ -88,6 +88,7 @@ class NoCi(_ProjectRule):
     remediation = (
         "Add a pipeline (for example GitHub Actions) that runs tests and `devshield scan`."
     )
+    fixable = True
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         if not ctx.match(*CI_FILES):

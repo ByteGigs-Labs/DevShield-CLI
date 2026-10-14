@@ -109,3 +109,9 @@ Risk Score
 8 / 100
 
 Critical Risk
+
+Run:
+
+devshield fix
+
+to automatically resolve 3 supported issues.

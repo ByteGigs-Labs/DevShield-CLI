@@ -79,7 +79,7 @@
         "column": null
       },
       "remediation": "Create an unprivileged user and switch to it with a USER instruction.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "PERF105",
@@ -107,7 +107,7 @@
         "column": null
       },
       "remediation": "Add a .dockerignore listing .git, node_modules, .env and build output.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "PERF104",

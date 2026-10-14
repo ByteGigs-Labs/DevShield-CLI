@@ -69,6 +69,7 @@ ignore = ["S101"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106", "S108", "S603", "S607"]
 "tests/rules/cases_*.py" = ["E501"]
+"tests/fixers/*.py" = ["E501"]
 "devshield/core/git.py" = ["S603", "S607"]
 "devshield/rules/docker.py" = ["S104"]
 

@@ -91,13 +91,17 @@ class EnvFileExposed(Rule):
         "them, they end up in the repository and in every clone."
     )
     remediation = "Add the file to .gitignore, then remove it from git with `git rm --cached`."
+    fixable = True
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         tracked = ctx.tracked
         for file in filter(ctx.dotenv, ctx.env_files):
             if tracked is not None and file in tracked:
                 yield self.finding(
-                    f"{file} is committed to git", file=file, severity=Severity.CRITICAL
+                    f"{file} is committed to git",
+                    file=file,
+                    severity=Severity.CRITICAL,
+                    fixable=False,
                 )
             elif not ctx.is_gitignored(file):
                 yield self.finding(f"{file} is not covered by .gitignore", file=file)

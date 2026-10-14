@@ -114,3 +114,11 @@ def render_terminal(
     _line(console, (f"{result.score} / 100", "bold"))
     console.print()
     _line(console, (result.band.label, BAND_STYLE[result.band.value]))
+    fixable = sum(1 for f in result.findings if f.fixable)
+    if fixable:
+        console.print()
+        _line(console, ("Run:", ""))
+        console.print()
+        _line(console, ("devshield fix", "bold cyan"))
+        console.print()
+        _line(console, (f"to automatically resolve {fixable} supported issues.", ""))

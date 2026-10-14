@@ -43,6 +43,7 @@ class DebugEnabled(Rule):
         "which hands attackers a map of the application and sometimes its secrets."
     )
     remediation = "Set APP_DEBUG=false (and NODE_ENV=production) for every deployed environment."
+    fixable = True
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         for file in ctx.env_files:
@@ -65,6 +66,7 @@ class DebugEnabled(Rule):
                 "config/app.php hard-codes debug to true",
                 file="config/app.php",
                 line=parsed[1].get(("debug",)),
+                fixable=False,
             )
         for file in ctx.dockerfiles:
             for instruction in final_stage(ctx.dockerfile(file)):
@@ -73,6 +75,7 @@ class DebugEnabled(Rule):
                         "Image sets a development or debug environment",
                         file=file,
                         line=instruction.line,
+                        fixable=False,
                     )
 
 
@@ -86,6 +89,7 @@ class EnvExampleMissing(Rule):
         "new developers and deployments have to guess."
     )
     remediation = "Create .env.example with every key from .env and placeholder values."
+    fixable = True
 
     def check(self, ctx: ProjectContext) -> Iterator[Finding]:
         pair = _primary_pair(ctx)

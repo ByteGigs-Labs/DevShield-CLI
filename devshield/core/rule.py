@@ -62,6 +62,7 @@ class Rule(ABC):
         line: int | None = None,
         severity: Severity | None = None,
         remediation: str | None = None,
+        fixable: bool | None = None,
     ) -> Finding:
         return Finding(
             rule_id=self.id,
@@ -71,5 +72,5 @@ class Rule(ABC):
             message=message,
             location=Location(file=file, line=line) if file else None,
             remediation=remediation or self.remediation,
-            fixable=self.fixable,
+            fixable=self.fixable if fixable is None else fixable,
         )

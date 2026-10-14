@@ -37,7 +37,7 @@
         "column": null
       },
       "remediation": "Set APP_DEBUG=false (and NODE_ENV=production) for every deployed environment.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "DX004",
@@ -65,7 +65,7 @@
         "column": null
       },
       "remediation": "Add the file to .gitignore, then remove it from git with `git rm --cached`.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "SH205",
@@ -149,7 +149,7 @@
         "column": null
       },
       "remediation": "Add the file to .gitignore, then remove it from git with `git rm --cached`.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "SH205",
@@ -197,7 +197,7 @@
         "column": null
       },
       "remediation": "Add `permissions: contents: read` at the top and grant more per job only.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "DX005",
@@ -239,7 +239,7 @@
         "column": null
       },
       "remediation": "Create an unprivileged user and switch to it with a USER instruction.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "PERF301",
@@ -329,7 +329,7 @@
         "column": null
       },
       "remediation": "Create .env.example with every key from .env and placeholder values.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "DX006",
@@ -385,7 +385,7 @@
         "column": null
       },
       "remediation": "Add a .dockerignore listing .git, node_modules, .env and build output.",
-      "fixable": false
+      "fixable": true
     },
     {
       "rule_id": "PERF107",
